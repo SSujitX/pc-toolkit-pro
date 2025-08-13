@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![PC Toolkit Pro](https://img.shields.io/badge/PC%20Toolkit%20Pro-v2.8-blue?style=for-the-badge&logo=windows)
+![PC Toolkit Pro](https://img.shields.io/badge/PC%20Toolkit%20Pro-v2.9-blue?style=for-the-badge&logo=windows)
 ![Python](https://img.shields.io/badge/Python-3.11+-green?style=for-the-badge&logo=python)
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-orange?style=for-the-badge&logo=qt)
 ![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
