@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![PC Toolkit Pro](https://img.shields.io/badge/PC%20Toolkit%20Pro-v2.7-blue?style=for-the-badge&logo=windows)
+![PC Toolkit Pro](https://img.shields.io/badge/PC%20Toolkit%20Pro-v2.8-blue?style=for-the-badge&logo=windows)
 ![Python](https://img.shields.io/badge/Python-3.11+-green?style=for-the-badge&logo=python)
 ![PyQt6](https://img.shields.io/badge/PyQt6-GUI-orange?style=for-the-badge&logo=qt)
 ![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)
@@ -80,13 +80,14 @@ _Comprehensive system information display with real-time system tray monitoring_
 
 ### 🧹 **Advanced System Cleaner**
 
-| Feature                         | Description                                       | Benefits                                    |
-| ------------------------------- | ------------------------------------------------- | ------------------------------------------- |
-| 🗑️ **Smart Temp Cleanup**       | Removes temporary files, prefetch data, and cache | Frees up disk space, improves performance   |
-| 🔄 **Disk Cleanup Integration** | Full Windows Disk Cleanup with advanced options   | Deep system cleaning with Microsoft tools   |
-| ♻️ **Recycle Bin Manager**      | Individual or bulk recycle bin cleaning           | Quick space recovery and privacy protection |
-| 📊 **Real-time Progress**       | Live cleaning progress with file size reporting   | Transparent operation tracking              |
-| 📝 **Detailed Logging**         | Comprehensive logs of all cleaning operations     | Audit trail and troubleshooting support     |
+| Feature                         | Description                                       | Benefits                                       |
+| ------------------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| 🗑️ **Smart Temp Cleanup**       | Removes temporary files, prefetch data, and cache | Frees up disk space, improves performance      |
+| 🔄 **Disk Cleanup Integration** | Full Windows Disk Cleanup with advanced options   | Deep system cleaning with Microsoft tools      |
+| ♻️ **Recycle Bin Manager**      | Individual or bulk recycle bin cleaning           | Quick space recovery and privacy protection    |
+| 💾 **Free Memory**              | Release unused RAM and optimize memory usage      | Improves system responsiveness and performance |
+| 📊 **Real-time Progress**       | Live cleaning progress with file size reporting   | Transparent operation tracking                 |
+| 📝 **Detailed Logging**         | Comprehensive logs of all cleaning operations     | Audit trail and troubleshooting support        |
 
 ### 📊 **Real-time System Monitor**
 
@@ -101,14 +102,15 @@ _Comprehensive system information display with real-time system tray monitoring_
 
 ### 📊 **Comprehensive System Information**
 
-| Component             | Details                        | Information Provided                    |
-| --------------------- | ------------------------------ | --------------------------------------- |
-| ⏱️ **System Uptime**  | Precise runtime tracking       | Days, hours, minutes, seconds display   |
-| 🖥️ **CPU Details**    | Processor information & usage  | CPU name, cores, usage percentage       |
-| 💾 **Memory Info**    | RAM statistics and utilization | Total, used, available memory with %    |
-| 💿 **Storage Data**   | Disk space and usage metrics   | Total, used, free space with percentage |
-| 🎮 **GPU Monitor**    | Graphics card performance      | GPU name, usage, memory, temperature    |
-| 🖥️ **OS Information** | Operating system details       | Edition, version, build, architecture   |
+| Component                | Details                        | Information Provided                        |
+| ------------------------ | ------------------------------ | ------------------------------------------- |
+| ⏱️ **System Uptime**     | Precise runtime tracking       | Days, hours, minutes, seconds display       |
+| 🖥️ **CPU Details**       | Processor information & usage  | CPU name, cores, usage percentage           |
+| 💾 **Memory Info**       | RAM statistics and utilization | Total, used, available memory with %        |
+| 💿 **Storage Data**      | Disk space and usage metrics   | Total, used, free space with percentage     |
+| 🎮 **GPU Monitor**       | Graphics card performance      | GPU name, usage, memory, temperature        |
+| 🖥️ **OS Information**    | Operating system details       | Edition, version, build, architecture       |
+| 📋 **Copy to Clipboard** | One-click PC specs export      | Copy all system specifications to clipboard |
 
 ### 🔔 **Smart System Tray**
 
@@ -242,13 +244,15 @@ uv run python -m pyinstaller --noconfirm --windowed --onefile --icon "icon.ico" 
 3. **Operating System**: Check OS edition, version, build, and architecture
 4. **Live Updates**: Real-time data refresh with asynchronous loading
 5. **Performance Metrics**: Track system uptime and resource utilization
+6. **Copy to Clipboard**: Export all PC specifications with one click for easy sharing
 
 ### 🧹 **System Cleaner Tab**
 
 1. **Select Cleaning Type**: Choose from comprehensive cleaning options
-2. **Monitor Progress**: Watch real-time cleaning progress with detailed logs
-3. **Review Results**: Check freed space and cleaned file counts
-4. **Multiple Locations**: Clean user temp, system temp, and prefetch files
+2. **Free Memory**: Release unused RAM to optimize system performance
+3. **Monitor Progress**: Watch real-time cleaning progress with detailed logs
+4. **Review Results**: Check freed space and cleaned file counts
+5. **Multiple Locations**: Clean user temp, system temp, and prefetch files
 
 ### ⚡ **Power Management Tab**
 
@@ -300,18 +304,6 @@ uv run python -m pyinstaller --noconfirm --windowed --onefile --icon "icon.ico" 
 3. **Save Work** before using shutdown features
 4. **Regular Monitoring** for optimal system health
 5. **Backup Data** before major cleaning operations
-
----
-
-## 🔗 Dependencies
-
-### **Core Libraries**
-
-```python
-PyQt6>=6.9.1          # Modern GUI framework
-psutil>=7.0.0          # System monitoring and process management
-humanize>=4.12.3        # Human-readable file sizes and numbers
-```
 
 ---
 
