@@ -106,7 +106,7 @@ class SystemInfoThread(QThread):
             except Exception as e:
                 print(f"System monitoring error: {e}")
 
-            self.msleep(2000)
+            self.msleep(5000)  # Reduced frequency from 2s to 5s for better performance
 
     def stop(self):
         """Stop the monitoring thread."""
