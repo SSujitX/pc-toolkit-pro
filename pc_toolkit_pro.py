@@ -117,7 +117,11 @@ class PCToolkit(QMainWindow):
         self.create_system_tab()
         self.create_cleaner_tab()
         self.create_power_tab()
-        self.create_system_info_tab()
+
+        # Lazy loading for system info tab
+        self.system_info_widget = None
+        self.tabs.addTab(QWidget(), "🖥️ Information")
+        self.tabs.currentChanged.connect(self.on_tab_changed)
 
         layout.addWidget(self.tabs)
 
@@ -305,9 +309,14 @@ class PCToolkit(QMainWindow):
         btn3.clicked.connect(self.system_cleaner.empty_recycle_bin_only)
         btn3.setStyleSheet(ModernDarkTheme.get_button_style("special"))
 
+        btn4 = QPushButton("🧠 Free Up Memory/RAM")
+        btn4.clicked.connect(self.system_cleaner.optimize_memory)
+        btn4.setStyleSheet(ModernDarkTheme.get_button_style("warning"))
+
         clean_layout.addWidget(btn1)
         clean_layout.addWidget(btn2)
         clean_layout.addWidget(btn3)
+        clean_layout.addWidget(btn4)
 
         clean_group.setLayout(clean_layout)
         layout.addWidget(clean_group)
@@ -665,11 +674,21 @@ class PCToolkit(QMainWindow):
         power_widget.setLayout(layout)
         self.tabs.addTab(power_widget, "⚡ Power")
 
+    def on_tab_changed(self, index):
+        """Handle tab changes for lazy loading."""
+        if index == 3 and self.system_info_widget is None:  # System info tab index
+            self.create_system_info_tab()
+
     def create_system_info_tab(self):
-        self.system_info_widget = SystemInfoWidget()
-        # Clear cache to ensure correct OS detection
-        self.system_info_widget.clear_cache()
-        self.tabs.addTab(self.system_info_widget, "🖥️ Information")
+        """Create system info tab with lazy loading."""
+        if self.system_info_widget is None:
+            self.system_info_widget = SystemInfoWidget()
+            # Clear cache to ensure correct OS detection
+            self.system_info_widget.clear_cache()
+            # Replace the placeholder widget
+            self.tabs.removeTab(3)
+            self.tabs.insertTab(3, self.system_info_widget, "🖥️ Information")
+            self.tabs.setCurrentIndex(3)  # Stay on the tab
 
     def update_timer_range(self, unit):
         if unit == "Minutes":
@@ -896,7 +915,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     app.setApplicationName("PC Toolkit Pro")
-    app.setApplicationVersion("2.7")
+    app.setApplicationVersion("2.8")
     app.setOrganizationName("PC Toolkit Suite")
 
     app.setQuitOnLastWindowClosed(False)
