@@ -16,16 +16,21 @@ export default defineConfig(async () => ({
   },
   clearScreen: false,
   server: {
-    port: 1420,
+    // 1420 falls in a Windows Hyper-V excluded range (1326-1425) → EACCES.
+    port: 5173,
     strictPort: true,
-    host: host || false,
+    host: host || "127.0.0.1",
     hmr: host
       ? {
           protocol: "ws",
           host,
-          port: 1421,
+          port: 5174,
         }
-      : undefined,
+      : {
+          protocol: "ws",
+          host: "127.0.0.1",
+          port: 5174,
+        },
     watch: {
       ignored: ["**/src-tauri/**"],
     },
