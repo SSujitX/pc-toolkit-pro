@@ -256,8 +256,3 @@ fn query_ps_list(expression: &str) -> Vec<String> {
         })
         .unwrap_or_default()
 }
-
-#[allow(dead_code)]
-fn unused_err() -> PlatformError {
-    PlatformError::Unsupported
-}

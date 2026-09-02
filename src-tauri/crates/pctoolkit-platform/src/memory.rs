@@ -3,7 +3,7 @@ use std::process::Command;
 use sysinfo::System;
 
 use crate::monitor::require_admin;
-use crate::{PlatformError, PlatformResult};
+use crate::PlatformResult;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,11 +63,3 @@ fn trim_current_working_set() {
     }
 }
 
-pub fn empty_ok() -> PlatformResult<()> {
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn map_err(e: impl ToString) -> PlatformError {
-    PlatformError::OperationFailed(e.to_string())
-}

@@ -98,28 +98,28 @@ pub fn scan_cleanup() -> CoreResult<CleanupScan> {
         items: vec![
             CleanupScanItem {
                 id: CleanerCategory::TempFiles,
-                title_key: "cleaner.tempFiles",
+                title_key: "cleaner.tempFiles".into(),
                 estimated_bytes: temp_bytes,
                 requires_admin: true,
                 selected: true,
             },
             CleanupScanItem {
                 id: CleanerCategory::RecycleBin,
-                title_key: "cleaner.recycleBin",
+                title_key: "cleaner.recycleBin".into(),
                 estimated_bytes: 0,
                 requires_admin: false,
                 selected: true,
             },
             CleanupScanItem {
                 id: CleanerCategory::DiskCleanup,
-                title_key: "cleaner.diskCleanup",
+                title_key: "cleaner.diskCleanup".into(),
                 estimated_bytes: 0,
                 requires_admin: true,
                 selected: false,
             },
             CleanupScanItem {
                 id: CleanerCategory::FreeMemory,
-                title_key: "cleaner.freeMemory",
+                title_key: "cleaner.freeMemory".into(),
                 estimated_bytes: 0,
                 requires_admin: false,
                 selected: false,
