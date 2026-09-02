@@ -23,6 +23,7 @@ Keep these domain boundaries stable:
 - `history`: operation records under app local data;
 - `quick_actions`: launch common Windows tools/settings (platform launch helpers);
 - `window` / tray / updater: shell adapters over Core + plugins — not new product domains.
+- `settings` (presentation): theme/language/About/updater UI; **Open Folder** opens `%LOCALAPPDATA%\PC Toolkit Pro\` via a Rust command (`open_app_data_folder`) — do not rely on frontend `opener:allow-open-path` alone (`opener:default` does not include it).
 
 Do not create broad modules such as `common`, `misc`, `manager`, `optimization`, or a new service that aggregates unrelated domains. Product pages may combine domain results without moving that coordination into a giant Core service.
 
@@ -67,11 +68,14 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 - Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk).
 - Memory Cleaner: selectable areas, live physical/virtual stats, auto-clean from **5 min** upward + free-RAM threshold; tray uses the same settings. Real Win32 APIs; honest skip/log when not elevated; **no PowerShell fake**; settings in `%LOCALAPPDATA%\PC Toolkit Pro\`.
 
-### Tray / Information / Updates
+### Tray / Information / Updates / Power / Shell
 
 - Tray + hide-to-tray until Exit (Python-era behavior). Close / Alt+F4 hides; Exit quits.
+- Tray icon is created at **Rust startup** (stable id `pctoolkit-main-tray`) with a real icon; Vue attaches the menu after mount. Capabilities need `core:tray:default`, `core:menu:default`, and `core:image:default`.
+- Titlebar memory circle is **click-to-optimize** (same Memory Cleaner settings/path as tray clean) and must refresh immediately after optimize.
 - No flashing console when collecting system info.
-- Information/export: full hardware report (CPU, disks, RAM, GPU, monitors, motherboard, OS), including PSU name when available, for copy/share.
+- Information load emits staged progress (metrics → hardware → GPU → assemble); UI uses the shared operation workspace progress ring (same as Cleaner / Memory).
+- Power schedule: after confirm, show a live countdown with **Cancel Shutdown** (`shutdown /a`); power actions check Windows exit status (no fire-and-forget success).
 - App updates use `@tauri-apps/plugin-updater` with signed release artifacts and GitHub `latest.json` — not “open releases URL” as the primary Check for Updates path.
 
 ## Repository hygiene
@@ -92,6 +96,7 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 4. Keep structural moves separate from behavior changes whenever review would otherwise become ambiguous.
 5. Validate on Windows when the change touches Win32, NSIS, tray, elevation, or installer behavior. If the environment lacks MSVC/`link.exe`, use GitHub Actions for real `.exe` builds and document what was not validated locally.
 6. Review the final diff for correctness, safety, honesty of privileged paths, naming, locales, and stale documentation before committing.
+7. **Keep AGENTS.md current:** when the change adds a domain, command/event, store, safety/honesty rule, persistence path, tray/updater/shell invariant, or validation requirement, update root [`AGENTS.md`](AGENTS.md) and the matching child ([`src/AGENTS.md`](src/AGENTS.md) and/or [`src-tauri/AGENTS.md`](src-tauri/AGENTS.md)) in the **same** change. Skip AGENTS edits for typo-only, format-only, or one-off fixes that do not change documented invariants. Cursor rule: `.cursor/rules/agents-md-sync.mdc`.
 
 ## Required validation
 
@@ -113,7 +118,7 @@ Tests are required for high-risk logic, persistence, safety boundaries, memory o
 
 - Keep contributor guidance concise and place domain-specific instructions near the code they govern. Child `AGENTS.md` files own subtree detail.
 - Do not commit private research, raw machine reports, credentials, or private release tooling. Durable architecture decisions may be documented publicly when they help contributors.
-- Update public guidance in the same change when contributor-visible behavior or validation changes.
+- Update public guidance in the same change when contributor-visible behavior or validation changes (new domains, commands, safety rules, persistence, tray/updater, or required checks). Typo-only and one-off bug fixes without invariant changes do not require AGENTS edits.
 
 ## Learned User Preferences
 

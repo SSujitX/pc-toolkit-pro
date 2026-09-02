@@ -7,9 +7,9 @@ This file applies only to `src-tauri/` and inherits the repository-wide rules in
 - `crates/pctoolkit-core`: platform-neutral product domains, use cases, safety policy, and persistence. It must not depend on Tauri or a WebView.
 - `crates/pctoolkit-platform`: OS contracts and Windows implementations. It reports typed capabilities, samples, and safe fallbacks; it does not decide product workflows (no auto-clean policy, no history orchestration, no UI strings).
 - `src/` (under `src-tauri`): thin Tauri adapter. Commands validate transport input, call Core, translate typed errors, and publish events.
-- Plugins (`tauri-plugin-*`): isolated integration only (opener, process, single-instance, updater, tray via Tauri features). Register plugin init, capabilities, and frontend bindings in the same change.
+- Plugins (`tauri-plugin-*`): isolated integration only (opener, process, single-instance, updater, tray via Tauri features). Register plugin init, capabilities, and frontend bindings in the same change. Tray icon itself is bootstrapped in `lib.rs` (`pctoolkit-main-tray`); frontend sets the menu.
 
-Core modules today: `cleaner`, `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process`, `gpu`, and related helpers.
+Core modules today: `cleaner`, `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process`, `gpu`, and related helpers. Adapter commands also include `settings::open_app_data_folder` (shell helper, not a new Core domain).
 
 Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, memory, power, and history as separate implementations that collaborate through typed requests/results.
 
@@ -46,9 +46,11 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 
 ## Power, monitor, system info
 
-- Power actions and scheduled shutdown live in platform + Core; adapter commands stay thin.
+- Power actions and scheduled shutdown live in platform + Core; adapter commands stay thin. Prefer `System32\shutdown.exe`, wait for exit status (Python-era `check=True`), and cancel-then-reschedule before a new `/t` timer. Lock/sleep use Win32 (`LockWorkStation` / `SetSuspendState`), not rundll32 stubs.
+- Quick-action GUI tools launch via System32 + `cmd /C start` so PATH/console flags from the Tauri host do not block Task Manager and peers.
 - Monitor samples feed the titlebar and Monitor page; keep sampling cheap and non-blocking on the UI path.
-- System information collection must avoid flashing a console window. Prefer quiet Win32 / WMI-style collection with typed fields (CPU, disks, RAM, GPU, monitors, motherboard, OS, PSU name when available).
+- System information collection must avoid flashing a console window. Prefer quiet Win32 / WMI-style collection with typed fields (CPU, disks, RAM, GPU, monitors, motherboard, OS, PSU name when available). Emit staged `SystemInfoProgress` (`metrics` → `hardware` → `gpu` → `assemble`) for the Information UI.
+- Memory privilege enable must treat `ERROR_NOT_ALL_ASSIGNED` as failure; map `STATUS_PRIVILEGE_NOT_HELD` to `skippedNeedAdmin`, not fake `ok` / vague `failed`.
 
 ## Platform code
 
@@ -61,10 +63,11 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 
 - Command handlers remain async adapters and contain no scan, cleanup, memory-optimize, or persistence algorithms.
 - Register every command, permission, capability, frontend service binding, and plugin initialization in the same change.
-- Capability scopes stay minimal (`capabilities/default.json`). Add `updater:default` (and similar) only when the feature is wired end-to-end.
-- App startup must not perform long scans or blocking filesystem work before the first window is shown.
+- Capability scopes stay minimal (`capabilities/default.json`). Tray/menu needs `core:tray:default` + `core:menu:default` + `core:image:default`; updater needs `updater:default` only when wired end-to-end. Do not assume `opener:default` includes `allow-open-path`.
+- App startup must not perform long scans or blocking filesystem work before the first window is shown. Tray icon bootstrap is allowed at setup (cheap); full menus attach from Vue after mount.
 - Window close on `main` hides to tray; Exit from tray quits. Preserve single-instance focus behavior.
-- Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets and publishes `latest.json`. Never commit private keys under `.tauri/`.
+- Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets (prefer key **file path** in CI) and publishes `latest.json`. Never commit private keys under `.tauri/`.
+- `tauri` Cargo features for tray icons include `tray-icon`, `image-png`, and `image-ico` when embedding/loading tray images.
 
 ## Blocking work and cancel
 
@@ -84,3 +87,5 @@ cargo test --manifest-path src-tauri/Cargo.toml -p pctoolkit-core
 When MSVC/`link.exe` is missing locally, do not claim a full Windows link succeeded — use GitHub Actions (`.github/workflows/tauri-build.yml` / `release-windows.yml`) for real binaries and state the unvalidated local scope.
 
 Changes to cleaner safety, memory optimize areas, persistence, elevation paths, or performance require tests or a reproducible observation appropriate to the affected behavior. Keep raw machine evidence and private datasets outside the repository.
+
+When a change adds a Core/platform module, Tauri command/event/plugin, persistence path, or Win32 honesty/elevation rule, update **this** file (and root [`AGENTS.md`](../AGENTS.md) if cross-cutting) in the same change. See `.cursor/rules/agents-md-sync.mdc`.

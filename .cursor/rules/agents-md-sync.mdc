@@ -1,0 +1,48 @@
+---
+description: Keep AGENTS.md files current after major product changes
+alwaysApply: true
+---
+
+# Keep AGENTS.md in sync
+
+After finishing a change (before claiming done / before commit when the user asked to commit), update contributor guidance when the change is **major** or **contributor-visible**.
+
+## Files to update (same change)
+
+| Change touches | Update |
+| --- | --- |
+| Product domains, safety, tray/updater, CI invariants, branding | root [`AGENTS.md`](../../AGENTS.md) |
+| Vue pages, stores, services, shell UI, locales patterns | [`src/AGENTS.md`](../../src/AGENTS.md) |
+| Core/platform/commands, Win32, persistence paths, plugins | [`src-tauri/AGENTS.md`](../../src-tauri/AGENTS.md) |
+
+Child files add subtree rules only; they do not replace root `AGENTS.md`.
+
+## What counts as “must write”
+
+Update when any of these land:
+
+- New product domain, page, store, Core module, or platform capability
+- New Tauri command / event / plugin / capability permission
+- Changed safety, elevation, honesty, or cancel/progress rules
+- New persistence path or settings file under app local data
+- Tray, titlebar, updater, or hide-to-tray behavior change
+- Validation / CI requirements contributors must run
+- Renamed domains or retired “do not create” patterns
+
+## What does **not** need an AGENTS rewrite
+
+- Typo-only or pure formatting
+- Locales string-only with no new workflow
+- One-off bugfix that does not change documented invariants
+- Private notes, secrets, or machine-specific paths
+
+## How to write
+
+- Keep entries **concise** (bullets, not essays). Prefer durable rules over changelog prose.
+- Put detail next to the code it governs (child `AGENTS.md` for subtree; root for cross-cutting).
+- If a feature is temporary or experimental, say so explicitly or omit until it stabilizes.
+- Do not invent new domains like `common` / `manager` in docs that the architecture forbids in code.
+
+## Done check
+
+Before finishing major work, confirm the matching `AGENTS.md` file(s) mention the new invariant or list the new domain/command/store if contributors would otherwise miss it.

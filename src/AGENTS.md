@@ -36,8 +36,12 @@ Current Stores: `app-store` (shell/theme/navigation), `cleaner-store`, `deep-cle
 
 - Progress listeners: **listen before invoke**; always unlisten in `finally`.
 - Long-running operations belong in Stores that call services; pages stay presentational.
-- Tray (`tray-service.ts`) must reuse Memory Cleaner settings and the same optimize path as the Memory page — do not fork “tray-only” clean logic.
+- Tray (`tray-service.ts`) must reuse Memory Cleaner settings and the same optimize path as the Memory page — do not fork “tray-only” clean logic. Prefer attaching the menu to the Rust-created tray id rather than creating a second icon without a fallback icon.
+- Titlebar memory circle click runs Memory Cleaner optimize (`reason: tray`) and the monitor snapshot must refresh quietly afterward so the gauge matches page stats.
+- Long operations (Cleaner, Deep Cleaner, Memory, Information) share `PtOperationWorkspace` with a **circular** progress ring (not a rounded square frame).
 - Updater flow lives in `app-update-service` + `app-update-store`. About UI shows checking / up-to-date / available / download progress / install / restart states. Do not regress Check for Updates to only opening the GitHub releases URL.
+- Settings **Open Folder** goes through `SettingsApi.openAppDataFolder` → `open_app_data_folder` (not frontend `openPath`).
+- Information uses `SystemInfoService.loadWithProgress` + `system-info-progress` events; Power schedule UI shows live countdown + cancel while `hasActiveSchedule`.
 - Window show/hide/close/tray hide behavior goes through the window/application services and matching Rust commands — preserve hide-to-tray until Exit.
 
 ## Text, status, and logging
@@ -76,3 +80,5 @@ pnpm exec vue-tsc --noEmit
 ```
 
 Also run `pnpm build` when a change touches packaging, assets, routing, or production-only code paths. Test affected UI flows in light and dark (and system theme when relevant). Verify About updater states, Memory Cleaner auto settings, and tray actions when those areas change.
+
+When a change adds a page/store/service pattern, shell/tray/updater UI invariant, or locale workflow rule, update **this** file (and root [`AGENTS.md`](../AGENTS.md) if cross-cutting) in the same change. See `.cursor/rules/agents-md-sync.mdc`.
