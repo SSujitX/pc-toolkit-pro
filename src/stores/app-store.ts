@@ -6,7 +6,7 @@ export type ThemeMode = 'light' | 'dark';
 export const useAppStore = defineStore('app', {
   state: () => ({
     currentPage: PAGE_IDS.monitor as PageId,
-    theme: 'dark' as ThemeMode,
+    theme: 'light' as ThemeMode,
     sidebarExpanded: createSidebarLayoutState(
       typeof window !== 'undefined' ? window.innerWidth : 1280
     ).expanded,
@@ -15,10 +15,11 @@ export const useAppStore = defineStore('app', {
   }),
   actions: {
     loadSettings() {
-      const theme = (localStorage.getItem('pt-theme') as ThemeMode | null) ?? 'dark';
+      const theme = (localStorage.getItem('pt-theme') as ThemeMode | null) ?? 'light';
       this.setTheme(theme);
       const expanded = localStorage.getItem('pt-sidebar-expanded');
       if (expanded != null) this.sidebarExpanded = expanded === '1';
+      else this.sidebarExpanded = true;
     },
     setTheme(theme: ThemeMode) {
       this.theme = theme;
