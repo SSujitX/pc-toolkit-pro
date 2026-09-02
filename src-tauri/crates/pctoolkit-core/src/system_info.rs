@@ -31,6 +31,10 @@ pub struct SystemInformationDto {
     pub username: String,
     pub monitors: Vec<String>,
     pub storage_devices: Vec<String>,
+    pub power_plan: String,
+    pub power_supplies: Vec<String>,
+    pub batteries: Vec<String>,
+    pub ac_line_status: String,
     pub copy_text: String,
 }
 
@@ -62,6 +66,10 @@ pub fn get_system_information() -> CoreResult<SystemInformationDto> {
         username: info.username,
         monitors: info.monitors,
         storage_devices: info.storage_devices,
+        power_plan: info.power_plan,
+        power_supplies: info.power_supplies,
+        batteries: info.batteries,
+        ac_line_status: info.ac_line_status,
         copy_text: info.copy_text,
     })
 }
