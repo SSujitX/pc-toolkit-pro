@@ -160,7 +160,10 @@ mod windows_impl {
     use std::ptr;
 
     use windows::core::PCWSTR;
-    use windows::Win32::Foundation::{CloseHandle, GENERIC_READ, HANDLE};
+    use windows::Win32::Foundation::{
+        CloseHandle, GetLastError, SetLastError, ERROR_NOT_ALL_ASSIGNED, GENERIC_READ, HANDLE,
+        WIN32_ERROR,
+    };
     use windows::Win32::Security::{
         AdjustTokenPrivileges, LookupPrivilegeValueW, LUID_AND_ATTRIBUTES, SE_PRIVILEGE_ENABLED,
         TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TOKEN_QUERY,
@@ -182,6 +185,9 @@ mod windows_impl {
     const MEMORY_FLUSH_MODIFIED_LIST: u32 = 3;
     const MEMORY_PURGE_STANDBY_LIST: u32 = 4;
     const MEMORY_PURGE_LOW_PRIORITY_STANDBY_LIST: u32 = 5;
+
+    /// NTSTATUS STATUS_PRIVILEGE_NOT_HELD
+    const STATUS_PRIVILEGE_NOT_HELD: i32 = -1073741727; // 0xC0000061
 
     const FSCTL_DISCARD_VOLUME_CACHE: u32 = 0x0009_0054;
     const FSCTL_RESET_WRITE_ORDER: u32 = 0x0009_00F8;
@@ -308,8 +314,8 @@ mod windows_impl {
                 if profile_ok {
                     nt_memory_list_command(MEMORY_EMPTY_WORKING_SETS)
                 } else {
-                    // Current-process trim already ran; system-wide empty needs privilege.
-                    Ok(())
+                    // Own-process trim already ran; system-wide EmptyWorkingSets needs admin.
+                    Err("skippedNeedAdmin")
                 }
             }
             MemoryArea::SystemFileCache => {
@@ -372,6 +378,16 @@ mod windows_impl {
         }
     }
 
+    fn map_nt_status(status: i32) -> Result<(), &'static str> {
+        if status == 0 {
+            Ok(())
+        } else if status == STATUS_PRIVILEGE_NOT_HELD {
+            Err("skippedNeedAdmin")
+        } else {
+            Err("failed")
+        }
+    }
+
     fn nt_memory_list_command(command: u32) -> Result<(), &'static str> {
         unsafe {
             let mut cmd = command;
@@ -380,11 +396,7 @@ mod windows_impl {
                 &mut cmd as *mut u32 as *mut _,
                 size_of::<u32>() as u32,
             );
-            if status == 0 {
-                Ok(())
-            } else {
-                Err("failed")
-            }
+            map_nt_status(status)
         }
     }
 
@@ -400,11 +412,7 @@ mod windows_impl {
                 &mut info as *mut _ as *mut _,
                 size_of::<MemoryCombineInformationEx>() as u32,
             );
-            if status == 0 {
-                Ok(())
-            } else {
-                Err("failed")
-            }
+            map_nt_status(status)
         }
     }
 
@@ -415,11 +423,7 @@ mod windows_impl {
                 ptr::null_mut(),
                 0,
             );
-            if status == 0 {
-                Ok(())
-            } else {
-                Err("failed")
-            }
+            map_nt_status(status)
         }
     }
 
@@ -433,9 +437,7 @@ mod windows_impl {
                 &mut info as *mut _ as *mut _,
                 size_of::<SystemFileCacheInformation64>() as u32,
             );
-            if status != 0 {
-                return Err("failed");
-            }
+            map_nt_status(status)?;
         }
 
         // SetSystemFileCacheSize(-1, -1, 0) flush — link from kernel32.
@@ -565,9 +567,15 @@ mod windows_impl {
                 }],
             };
 
-            let ok = AdjustTokenPrivileges(token, false, Some(&mut tp), 0, None, None).is_ok();
+            // AdjustTokenPrivileges can return success even when privileges were not assigned.
+            SetLastError(WIN32_ERROR(0));
+            if AdjustTokenPrivileges(token, false, Some(&mut tp), 0, None, None).is_err() {
+                let _ = CloseHandle(token);
+                return false;
+            }
+            let assigned = GetLastError() != ERROR_NOT_ALL_ASSIGNED;
             let _ = CloseHandle(token);
-            ok
+            assigned
         }
     }
 }
