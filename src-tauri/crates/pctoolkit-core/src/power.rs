@@ -1,9 +1,10 @@
 use pctoolkit_platform::{
-    cancel_scheduled_shutdown as platform_cancel, execute_power_action, schedule_shutdown as platform_schedule,
+    cancel_scheduled_shutdown as platform_cancel, execute_power_action,
+    schedule_shutdown as platform_schedule,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::history::record_history;
+use crate::history::{append_history, history_now_ms, HistoryOutcome, HistoryWrite};
 use crate::shared::CoreResult;
 
 pub use pctoolkit_platform::PowerAction;
@@ -15,8 +16,24 @@ pub struct ScheduleRequest {
 }
 
 pub fn execute_power(action: PowerAction) -> CoreResult<()> {
+    let started = history_now_ms();
     execute_power_action(action)?;
-    record_history("power", format!("{action:?}"), true, None);
+    append_history(HistoryWrite {
+        category: "power".into(),
+        title_key: "history.titles.power".into(),
+        summary: format!("{action:?}"),
+        started_at_ms: started,
+        finished_at_ms: history_now_ms(),
+        outcome: HistoryOutcome::Completed,
+        planned_bytes: None,
+        result_bytes: None,
+        selected_item_count: 1,
+        affected_item_count: 1,
+        failed_item_count: 0,
+        detail_lines: vec![format!("Power action: {action:?}")],
+        action: format!("{action:?}"),
+        detail: None,
+    });
     Ok(())
 }
 
@@ -26,18 +43,48 @@ pub fn schedule_shutdown(request: ScheduleRequest) -> CoreResult<()> {
             "seconds must be 1..=86400".into(),
         ));
     }
+    let started = history_now_ms();
     platform_schedule(request.seconds)?;
-    record_history(
-        "power",
-        format!("schedule_shutdown_{}", request.seconds),
-        true,
-        None,
-    );
+    append_history(HistoryWrite {
+        category: "power".into(),
+        title_key: "history.titles.scheduleShutdown".into(),
+        summary: format!("Delay {} seconds", request.seconds),
+        started_at_ms: started,
+        finished_at_ms: history_now_ms(),
+        outcome: HistoryOutcome::Completed,
+        planned_bytes: None,
+        result_bytes: None,
+        selected_item_count: 1,
+        affected_item_count: 1,
+        failed_item_count: 0,
+        detail_lines: vec![format!(
+            "Scheduled shutdown in {} seconds",
+            request.seconds
+        )],
+        action: format!("schedule_shutdown_{}", request.seconds),
+        detail: Some(format!("seconds={}", request.seconds)),
+    });
     Ok(())
 }
 
 pub fn cancel_scheduled_shutdown() -> CoreResult<()> {
+    let started = history_now_ms();
     platform_cancel()?;
-    record_history("power", "cancel_scheduled_shutdown".into(), true, None);
+    append_history(HistoryWrite {
+        category: "power".into(),
+        title_key: "history.titles.cancelSchedule".into(),
+        summary: "Scheduled shutdown cancelled".into(),
+        started_at_ms: started,
+        finished_at_ms: history_now_ms(),
+        outcome: HistoryOutcome::Completed,
+        planned_bytes: None,
+        result_bytes: None,
+        selected_item_count: 1,
+        affected_item_count: 1,
+        failed_item_count: 0,
+        detail_lines: vec!["Cancelled the pending scheduled shutdown.".into()],
+        action: "cancel_scheduled_shutdown".into(),
+        detail: None,
+    });
     Ok(())
 }
