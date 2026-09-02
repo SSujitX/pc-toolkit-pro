@@ -33,6 +33,7 @@ pub fn run() {
             commands::memory::set_memory_cleaner_settings,
             commands::memory::optimize_memory,
             commands::memory::cancel_memory_optimize,
+            commands::settings::open_app_data_folder,
             commands::window::show_main_window,
             commands::window::minimize_main_window,
             commands::window::toggle_maximize_main_window,
@@ -40,8 +41,9 @@ pub fn run() {
             commands::window::hide_main_window,
         ])
         .setup(|app| {
-            // Tray is configured from the frontend after mount for icon/menu flexibility.
-            let _ = app;
+            // Ensure a tray icon exists as soon as the process starts (Windows needs a
+            // real icon; FE attaches the full menu after Vue mounts).
+            setup_tray_icon(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -56,4 +58,41 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("PC Toolkit Pro failed to start");
+}
+
+/// Stable id so the Vue tray service can find this icon and attach the menu.
+pub const TRAY_ID: &str = "pctoolkit-main-tray";
+
+fn setup_tray_icon(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use tauri::image::Image;
+    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .or_else(|| Image::from_bytes(include_bytes!("../icons/32x32.png")).ok())
+        .ok_or("tray icon missing")?;
+
+    let _tray = TrayIconBuilder::with_id(TRAY_ID)
+        .icon(icon)
+        .tooltip("PC Toolkit Pro")
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        })
+        .build(app)?;
+
+    Ok(())
 }
