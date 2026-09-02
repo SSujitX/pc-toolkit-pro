@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Moon, Power, RotateCcw, Lock, LogOut, Bed } from '@lucide/vue';
+import { Moon, Power, RotateCcw, Lock, LogOut, Bed, Timer } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
 import type { PowerAction } from '@/lib/models/actions';
@@ -65,6 +65,11 @@ function formatCountdown(total: number) {
     .toString()
     .padStart(2, '0')}`;
 }
+
+function clampAmount() {
+  if (!Number.isFinite(amount.value) || amount.value < 1) amount.value = 1;
+  if (amount.value > 1440) amount.value = 1440;
+}
 </script>
 
 <template>
@@ -78,29 +83,74 @@ function formatCountdown(total: number) {
         :disabled="store.busy"
         @click="clickAction(action.id, action.needsConfirm)"
       >
-        <component :is="action.icon" :size="20" :stroke-width="1.9" />
+        <span class="card-icon" aria-hidden="true">
+          <component :is="action.icon" :size="18" :stroke-width="1.9" />
+        </span>
         {{ t(action.labelKey) }}
       </button>
     </div>
 
-    <div class="schedule-card">
+    <section class="schedule-card">
+      <header class="schedule-head">
+        <div class="schedule-icon" aria-hidden="true">
+          <Timer :size="18" :stroke-width="1.9" />
+        </div>
+        <div class="schedule-copy">
+          <h2>{{ t('power.scheduleTitle') }}</h2>
+          <p>{{ t('power.scheduleBody') }}</p>
+        </div>
+      </header>
+
       <div v-if="store.deadline" class="countdown">
-        {{ formatCountdown(store.countdownSeconds) }}
+        <div>
+          <small>{{ t('power.activeLabel') }}</small>
+          <strong>{{ formatCountdown(store.countdownSeconds) }}</strong>
+        </div>
         <button type="button" class="pt-btn" @click="store.cancelSchedule()">
           {{ t('power.cancelSchedule') }}
         </button>
       </div>
-      <div class="schedule-row">
-        <input v-model.number="amount" type="number" min="1" max="1440" />
-        <select v-model="unit">
-          <option value="minutes">{{ t('power.minutes') }}</option>
-          <option value="hours">{{ t('power.hours') }}</option>
-        </select>
-        <button type="button" class="pt-btn pt-btn-primary" @click="clickSchedule">
+
+      <div class="schedule-toolbar">
+        <label class="field">
+          <span>{{ t('power.delay') }}</span>
+          <input
+            v-model.number="amount"
+            class="amount"
+            type="number"
+            min="1"
+            max="1440"
+            @blur="clampAmount"
+          />
+        </label>
+
+        <div class="unit-toggle" role="group" :aria-label="t('power.delay')">
+          <button
+            type="button"
+            :class="{ active: unit === 'minutes' }"
+            @click="unit = 'minutes'"
+          >
+            {{ t('power.minutes') }}
+          </button>
+          <button
+            type="button"
+            :class="{ active: unit === 'hours' }"
+            @click="unit = 'hours'"
+          >
+            {{ t('power.hours') }}
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="pt-btn pt-btn-primary schedule-submit"
+          :disabled="store.busy"
+          @click="clickSchedule"
+        >
           {{ t('power.schedule') }}
         </button>
       </div>
-    </div>
+    </section>
 
     <PtConfirmDialog
       v-model:open="confirmOpen"
@@ -121,51 +171,206 @@ function formatCountdown(total: number) {
 .card-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 56px;
   border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card);
   color: var(--foreground);
-  padding: 18px 12px;
+  padding: 12px 14px;
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: var(--shadow-card);
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease;
 }
-.card-btn:hover {
+.card-btn:hover:not(:disabled) {
   background: var(--surface-soft);
+  border-color: color-mix(in oklab, var(--border) 60%, transparent);
 }
+.card-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.card-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
 .schedule-card {
-  margin-top: 4px;
-  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
-  border-radius: 18px;
-  background: var(--card);
-  box-shadow: var(--shadow-card);
-  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  margin-top: 2px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.schedule-head {
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
 }
-.schedule-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.schedule-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--warning) 14%, transparent);
+  color: var(--warning);
 }
-.schedule-row input,
-.schedule-row select {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-soft);
-  color: var(--foreground);
-  padding: 10px 12px;
+.schedule-copy h2 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
+.schedule-copy p {
+  margin: 3px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .countdown {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  font-size: 1.5rem;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.countdown small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.countdown strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.375rem;
   font-weight: 700;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 96px;
+}
+.field > span {
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.amount {
+  box-sizing: border-box;
+  width: 96px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.amount:focus {
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 16%, transparent);
+}
+.amount::-webkit-outer-spin-button,
+.amount::-webkit-inner-spin-button {
+  opacity: 0.55;
+}
+
+.unit-toggle {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  height: 40px;
+  min-height: 40px;
+  padding: 3px;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.unit-toggle button {
+  min-width: 88px;
+  height: 100%;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.unit-toggle button.active {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+.unit-toggle button:hover:not(.active) {
+  color: var(--foreground);
+}
+
+.schedule-submit {
+  margin-inline-start: auto;
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .schedule-toolbar {
+    align-items: stretch;
+  }
+  .field {
+    flex: 1;
+    min-width: 0;
+  }
+  .amount {
+    width: 100%;
+  }
+  .unit-toggle {
+    width: 100%;
+  }
+  .schedule-submit {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+  .countdown {
+    flex-wrap: wrap;
+  }
+  .countdown .pt-btn {
+    width: 100%;
+  }
 }
 </style>
