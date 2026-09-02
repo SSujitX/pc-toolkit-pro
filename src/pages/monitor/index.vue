@@ -1,15 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { HardDrive, Cpu, RefreshCw } from '@lucide/vue';
+import {
+  AppWindow,
+  CircuitBoard,
+  Cpu,
+  FileText,
+  FolderOpen,
+  HardDrive,
+  Info,
+  LayoutDashboard,
+  Network,
+  NotebookPen,
+  RefreshCw,
+  Scissors,
+  Settings,
+  Terminal,
+  Volume2,
+  Wrench,
+} from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
-import { QUICK_ACTIONS } from '@/lib/models/actions';
+import { QUICK_ACTIONS, type QuickActionId } from '@/lib/models/actions';
 import { formatBytes, formatUptime } from '@/lib/utils/format';
 import { useMonitorStore } from '@/stores/monitor-store';
 
 const { t } = useI18n();
 const store = useMonitorStore();
 const snap = computed(() => store.snapshot);
+
+const ACTION_ICONS: Record<QuickActionId, Component> = {
+  taskManager: AppWindow,
+  deviceManager: CircuitBoard,
+  controlPanel: LayoutDashboard,
+  diskManagement: HardDrive,
+  commandPromptAdmin: Terminal,
+  powerShellAdmin: Terminal,
+  systemInfo: Info,
+  registryEditor: NotebookPen,
+  settings: Settings,
+  services: Wrench,
+  fileExplorer: FolderOpen,
+  networkConnections: Network,
+  snippingTool: Scissors,
+  notepad: FileText,
+  volumeMixer: Volume2,
+};
 
 onMounted(() => store.startPolling());
 onUnmounted(() => store.stopPolling());
@@ -82,7 +117,14 @@ onUnmounted(() => store.stopPolling());
         class="action"
         @click="store.openAction(action.id)"
       >
-        {{ t(action.labelKey) }}
+        <component
+          :is="ACTION_ICONS[action.id]"
+          class="action-icon"
+          :size="16"
+          :stroke-width="1.9"
+          aria-hidden="true"
+        />
+        <span>{{ t(action.labelKey) }}</span>
       </button>
     </div>
   </PtPageShell>
@@ -158,6 +200,9 @@ onUnmounted(() => store.stopPolling());
   gap: 8px;
 }
 .action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
   border-radius: 12px;
   background: var(--card);
@@ -165,8 +210,13 @@ onUnmounted(() => store.stopPolling());
   padding: 12px 12px;
   font-size: 0.8125rem;
   font-weight: 600;
+  text-align: left;
   cursor: pointer;
   box-shadow: var(--shadow-card);
+}
+.action-icon {
+  flex: none;
+  color: var(--primary);
 }
 .action:hover {
   background: var(--surface-soft);
