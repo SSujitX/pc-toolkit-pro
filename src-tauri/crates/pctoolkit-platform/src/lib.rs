@@ -13,7 +13,10 @@ mod system_info;
 pub use errors::{PlatformError, PlatformResult};
 pub use gpu::GpuSample;
 pub use launch::{launch_program, QuickActionId};
-pub use memory::{free_physical_memory_bytes, optimize_memory, MemoryOptimizeResult};
+pub use memory::{
+    free_physical_memory_bytes, memory_stats, optimize_memory, optimize_memory_areas,
+    ordered_areas, AreaOutcome, AreaStatus, MemoryArea, MemoryOptimizeResult, MemoryStats,
+};
 pub use monitor::{is_user_admin, require_admin, sample_monitor, MonitorSample, OsLabel};
 pub use power::{cancel_scheduled_shutdown, execute_power_action, schedule_shutdown, PowerAction};
 pub use recycle::empty_recycle_bin;
