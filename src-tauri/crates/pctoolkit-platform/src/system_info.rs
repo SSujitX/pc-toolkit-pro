@@ -3,7 +3,7 @@ use std::process::Command;
 
 use crate::gpu::sample_nvidia;
 use crate::monitor::sample_monitor;
-use crate::{PlatformError, PlatformResult};
+use crate::PlatformResult;
 
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
