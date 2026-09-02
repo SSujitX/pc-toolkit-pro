@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -40,5 +41,15 @@
       "icons/icon.ico"
     ]
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDExRDk5QUJDRkU2MkNFMjYKUldRbXptTCt2SnJaRWJQbzVOWjE5UHhXbWFpSmZqN20wdTRrT0c3T21CRUlQWGNHWlBJWTBTcmQK",
+      "endpoints": [
+        "https://github.com/SSujitX/pc-toolkit-pro/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
 }
