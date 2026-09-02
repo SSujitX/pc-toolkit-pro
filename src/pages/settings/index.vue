@@ -13,8 +13,7 @@ import {
   RefreshCw,
   X,
 } from '@lucide/vue';
-import { join, localDataDir } from '@tauri-apps/api/path';
-import { openPath, openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtSoftSelect from '@/components/custom/pt-soft-select.vue';
 import { APP_NAME, APP_VERSION, PAGE_IDS } from '@/lib/models/application-shell';
@@ -22,6 +21,7 @@ import {
   APP_UPDATE_FAILURE_STAGE_IDS,
   APP_UPDATE_STATUS_IDS,
 } from '@/lib/models/app-update';
+import { SettingsApi } from '@/lib/services/api-services';
 import { formatBytes } from '@/lib/utils/format';
 import { useAppStore, type ThemeMode } from '@/stores/app-store';
 import { useAppUpdateStore } from '@/stores/app-update-store';
@@ -164,8 +164,7 @@ function openHistory() {
 
 async function openDataFolder() {
   try {
-    const dir = await join(await localDataDir(), 'PC Toolkit Pro');
-    await openPath(dir);
+    await SettingsApi.openAppDataFolder();
   } catch (error) {
     app.reportError(error);
   }
