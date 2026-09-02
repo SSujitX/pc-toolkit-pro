@@ -86,7 +86,27 @@
   },
   "information": {
     "title": "Information",
-    "subtitle": "Hardware and operating system details"
+    "subtitle": "Hardware and operating system details",
+    "system": "System",
+    "processor": "Processor",
+    "memory": "Memory",
+    "disk": "Disk C:",
+    "gpu": "GPU",
+    "motherboard": "Motherboard",
+    "power": "Power",
+    "monitors": "Monitors",
+    "storage": "Storage",
+    "uptime": "Uptime",
+    "bios": "BIOS",
+    "powerPlan": "Power plan",
+    "acStatus": "AC line",
+    "powerSupply": "Power supply",
+    "battery": "Battery",
+    "noneReported": "None reported",
+    "psuUnavailable": "Not reported by Windows (common on desktop PCs — wattage is rarely exposed)",
+    "unavailableTitle": "Live hardware data needs the desktop app",
+    "unavailableBody": "Browser preview (pnpm dev) cannot read CPU, GPU, or power details. Run pnpm tauri:dev or open a CI-built .exe to load real system information.",
+    "loadFailed": "Could not load system information"
   },
   "settings": {
     "title": "Settings",
