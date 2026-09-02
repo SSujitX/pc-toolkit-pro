@@ -3,7 +3,7 @@
 ## What's New
 
 - Full rewrite to Tauri 2 + Vue 3 + Rust core
-- MangoDisk-style dense desktop UI with PC Toolkit branding
+- Soft dense desktop UI with PC Toolkit Pro branding
 - Fast load: window shows only after UI mount; no startup scans
 - Cleaner with scan/confirm/progress/cancel and measured memory reclaim
 - System tray, power controls, deep information panel, quick actions
