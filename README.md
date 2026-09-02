@@ -30,7 +30,16 @@ pnpm dev
 pnpm tauri:build
 ```
 
-CI: [`.github/workflows/tauri-build.yml`](.github/workflows/tauri-build.yml) builds Windows artifacts on `feat/tauri-rewrite`.
+### GitHub Actions (recommended for `.exe`)
+
+Workflow: [`.github/workflows/tauri-build.yml`](.github/workflows/tauri-build.yml)
+
+1. Push to `feat/tauri-rewrite` (or run **Actions → Build Windows EXE → Run workflow**)
+2. Open the finished run → **Artifacts**
+3. Download `pc-toolkit-pro-windows-<sha>` — contains:
+   - NSIS installer (`.exe`)
+   - MSI installer (`.msi`)
+   - Portable `pc-toolkit-pro.exe`
 
 ## Features
 

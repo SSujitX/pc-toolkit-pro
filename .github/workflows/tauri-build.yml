@@ -1,50 +1,90 @@
-name: Tauri Build
+name: Build Windows EXE
 
 on:
   workflow_dispatch:
   push:
     branches:
       - feat/tauri-rewrite
+      - master
     paths:
       - 'src/**'
       - 'src-tauri/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - 'index.html'
       - '.github/workflows/tauri-build.yml'
   pull_request:
     branches:
       - feat/tauri-rewrite
+      - master
+
+concurrency:
+  group: tauri-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build-windows:
+    name: Windows (NSIS + MSI)
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 90
 
-      - uses: pnpm/action-setup@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: windows-tauri
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile=false
+        run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri app
+      - name: Build Tauri app (Windows)
         run: pnpm tauri build
         env:
           CI: true
 
-      - uses: actions/upload-artifact@v4
+      - name: List bundle outputs
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse src-tauri/target/release/bundle -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length |
+            Format-Table -AutoSize
+          if (Test-Path src-tauri/target/release/pc-toolkit-pro.exe) {
+            Get-Item src-tauri/target/release/pc-toolkit-pro.exe |
+              Select-Object FullName, Length
+          }
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
         with:
-          name: pc-toolkit-pro-windows
+          name: pc-toolkit-pro-windows-${{ github.sha }}
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/pc-toolkit-pro.exe
-          if-no-files-found: warn
+          if-no-files-found: error
+          retention-days: 14
