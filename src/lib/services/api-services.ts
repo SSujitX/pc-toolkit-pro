@@ -25,6 +25,9 @@ export interface CleanupScanItem {
   estimatedBytes: number;
   requiresAdmin: boolean;
   selected: boolean;
+  riskKey: string;
+  detailKey: string;
+  itemCount: number;
 }
 
 export interface CleanupScan {
@@ -43,12 +46,7 @@ export interface CleanupResult {
   freedBytes: number;
   filesRemoved: number;
   log: string[];
-  memory?: {
-    freeBefore: number;
-    freeAfter: number;
-    freedBytes: number;
-    adminOptimizations: boolean;
-  } | null;
+  memory?: import('@/lib/models/memory-cleaner').MemoryOptimizeResult | null;
 }
 
 export interface SystemInformation {
@@ -57,26 +55,49 @@ export interface SystemInformation {
   cpuCores: number;
   cpuThreads: number;
   cpuUsage: number;
+  cpuFrequency: string;
+  cpuCache: string;
+  cpuSocket: string;
   memoryTotal: number;
   memoryUsed: number;
+  memoryAvailable: number;
   memoryPercent: number;
+  ramName: string;
+  ramType: string;
+  ramSpeed: string;
+  ramSlotsUsed: string;
   diskTotal: number;
   diskUsed: number;
+  diskFree: number;
   diskPercent: number;
+  diskDevice: string;
+  diskType: string;
   gpuName: string;
   gpuUsage?: number | null;
   gpuMemoryUsed?: number | null;
   gpuMemoryTotal?: number | null;
   gpuTemperature?: number | null;
+  motherboardProduct: string;
+  motherboardManufacturer: string;
+  motherboardVersion: string;
   motherboard: string;
+  chipset: string;
   bios: string;
+  biosVersion: string;
+  biosManufacturer: string;
+  biosDate: string;
+  systemModel: string;
+  memorySlotsTotal: string;
+  maxMemoryCapacity: string;
   osEdition: string;
   osVersion: string;
   osBuild: string;
+  osExperience: string;
   hostname: string;
   username: string;
   monitors: string[];
   storageDevices: string[];
+  powerSupplyName: string;
   powerPlan: string;
   powerSupplies: string[];
   batteries: string[];
@@ -101,18 +122,31 @@ export class CleanerService {
     return invoke('scan_cleanup_candidates');
   }
 
+  static async scanWithProgress(
+    handler: (progress: CleanupProgress) => void
+  ): Promise<CleanupScan> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<CleanupProgress>('cleanup-progress', (e) => handler(e.payload));
+      return await invoke('scan_cleanup_candidates');
+    } finally {
+      unlisten?.();
+    }
+  }
+
   static cancel(): Promise<void> {
     return invoke('cancel_cleanup');
   }
 
   static async executeWithProgress(
     categories: CleanerCategory[],
-    handler: (progress: CleanupProgress) => void
+    handler: (progress: CleanupProgress) => void,
+    source: 'cleaner' | 'deepCleaner' | 'memoryCleaner' = 'cleaner'
   ): Promise<CleanupResult> {
     let unlisten: UnlistenFn | undefined;
     try {
       unlisten = await listen<CleanupProgress>('cleanup-progress', (e) => handler(e.payload));
-      return await invoke('execute_cleanup', { request: { categories } });
+      return await invoke('execute_cleanup', { request: { categories, source } });
     } finally {
       unlisten?.();
     }
@@ -140,9 +174,50 @@ export class SystemInfoService {
 }
 
 export class HistoryService {
-  static list(): Promise<
-    Array<{ id: string; domain: string; action: string; success: boolean; detail?: string }>
-  > {
+  static list(): Promise<import('@/lib/models/history').HistoryRecord[]> {
     return invoke('list_history');
+  }
+
+  static clear(): Promise<void> {
+    return invoke('clear_history');
+  }
+}
+
+export class MemoryCleanerService {
+  static stats(): Promise<import('@/lib/models/memory-cleaner').MemoryStats> {
+    return invoke('get_memory_stats');
+  }
+
+  static getSettings(): Promise<import('@/lib/models/memory-cleaner').MemoryCleanerSettings> {
+    return invoke('get_memory_cleaner_settings');
+  }
+
+  static setSettings(
+    settings: import('@/lib/models/memory-cleaner').MemoryCleanerSettings
+  ): Promise<import('@/lib/models/memory-cleaner').MemoryCleanerSettings> {
+    return invoke('set_memory_cleaner_settings', { settings });
+  }
+
+  static async optimizeWithProgress(
+    reason: import('@/lib/models/memory-cleaner').OptimizeReason,
+    handler: (progress: import('@/lib/models/memory-cleaner').MemoryProgress) => void,
+    areas?: import('@/lib/models/memory-cleaner').MemoryAreaId[]
+  ): Promise<import('@/lib/models/memory-cleaner').MemoryOptimizeResult> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/memory-cleaner').MemoryProgress>(
+        'memory-progress',
+        (e) => handler(e.payload)
+      );
+      return await invoke('optimize_memory', {
+        request: { reason, areas: areas ?? null },
+      });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static cancel(): Promise<void> {
+    return invoke('cancel_memory_optimize');
   }
 }
