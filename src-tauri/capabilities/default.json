@@ -17,6 +17,7 @@
     "core:event:default",
     "core:tray:default",
     "opener:default",
-    "process:default"
+    "process:default",
+    "updater:default"
   ]
 }
