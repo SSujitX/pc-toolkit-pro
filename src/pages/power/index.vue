@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Moon, Power, RotateCcw, Lock, LogOut, Bed, Timer } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
@@ -33,6 +33,15 @@ const confirmMessage = computed(() => {
   return '';
 });
 
+const confirmTitle = computed(() => {
+  if (pendingAction.value === 'schedule') return t('power.scheduleTitle');
+  return t('power.title');
+});
+
+onMounted(() => {
+  store.ensureCountdown();
+});
+
 function clickAction(action: PowerAction, needsConfirm: boolean) {
   if (!needsConfirm) {
     void store.execute(action);
@@ -49,6 +58,7 @@ function clickSchedule() {
 
 function onConfirm() {
   if (pendingAction.value === 'schedule') {
+    clampAmount();
     const seconds = unit.value === 'hours' ? amount.value * 3600 : amount.value * 60;
     void store.schedule(seconds);
   } else if (pendingAction.value) {
@@ -61,9 +71,12 @@ function formatCountdown(total: number) {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s
-    .toString()
-    .padStart(2, '0')}`;
+  if (h > 0) {
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s
+      .toString()
+      .padStart(2, '0')}`;
+  }
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 function clampAmount() {
@@ -90,28 +103,45 @@ function clampAmount() {
       </button>
     </div>
 
-    <section class="schedule-card">
+    <section class="schedule-card" :class="{ active: store.hasActiveSchedule }">
       <header class="schedule-head">
         <div class="schedule-icon" aria-hidden="true">
           <Timer :size="18" :stroke-width="1.9" />
         </div>
         <div class="schedule-copy">
-          <h2>{{ t('power.scheduleTitle') }}</h2>
-          <p>{{ t('power.scheduleBody') }}</p>
+          <h2>
+            {{
+              store.hasActiveSchedule
+                ? t('power.activeTitle')
+                : t('power.scheduleTitle')
+            }}
+          </h2>
+          <p>
+            {{
+              store.hasActiveSchedule
+                ? t('power.activeBody')
+                : t('power.scheduleBody')
+            }}
+          </p>
         </div>
       </header>
 
-      <div v-if="store.deadline" class="countdown">
-        <div>
+      <div v-if="store.hasActiveSchedule" class="countdown" role="status" aria-live="polite">
+        <div class="countdown-main">
           <small>{{ t('power.activeLabel') }}</small>
           <strong>{{ formatCountdown(store.countdownSeconds) }}</strong>
         </div>
-        <button type="button" class="pt-btn" @click="store.cancelSchedule()">
+        <button
+          type="button"
+          class="pt-btn pt-btn-danger cancel-btn"
+          :disabled="store.busy"
+          @click="store.cancelSchedule()"
+        >
           {{ t('power.cancelSchedule') }}
         </button>
       </div>
 
-      <div class="schedule-toolbar">
+      <div v-else class="schedule-toolbar">
         <label class="field">
           <span>{{ t('power.delay') }}</span>
           <input
@@ -154,8 +184,11 @@ function clampAmount() {
 
     <PtConfirmDialog
       v-model:open="confirmOpen"
-      :title="t('power.title')"
+      :title="confirmTitle"
       :message="confirmMessage"
+      :confirm-text="
+        pendingAction === 'schedule' ? t('power.scheduleConfirm') : t('common.confirm')
+      "
       destructive
       @confirm="onConfirm"
     />
@@ -217,6 +250,10 @@ function clampAmount() {
   background: var(--card);
   box-shadow: var(--shadow-card);
 }
+.schedule-card.active {
+  border-color: color-mix(in oklab, var(--warning) 55%, var(--border));
+  background: color-mix(in oklab, var(--warning) 6%, var(--card));
+}
 .schedule-head {
   display: flex;
   align-items: flex-start;
@@ -249,24 +286,37 @@ function clampAmount() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface-soft);
+  gap: 14px;
+  padding: 16px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--warning) 35%, var(--border));
+  background: color-mix(in oklab, var(--warning) 10%, var(--card));
+}
+.countdown-main {
+  min-width: 0;
 }
 .countdown small {
   display: block;
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 600;
+  color: var(--warning);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 .countdown strong {
   display: block;
-  margin-top: 2px;
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  margin-top: 4px;
+  font-size: 2rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  line-height: 1.1;
+}
+.cancel-btn {
+  flex: none;
+  min-height: 44px;
+  padding-inline: 16px;
 }
 
 .schedule-toolbar {
@@ -367,9 +417,10 @@ function clampAmount() {
     margin-inline-start: 0;
   }
   .countdown {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
   }
-  .countdown .pt-btn {
+  .cancel-btn {
     width: 100%;
   }
 }
