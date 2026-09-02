@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Clock3, HardDrive, Minus, Square, X } from '@lucide/vue';
 import { ApplicationWindowService } from '@/lib/services/application-window-service';
 import { formatBytes, formatUptime } from '@/lib/utils/format';
+import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { useMonitorStore } from '@/stores/monitor-store';
 
+const { t } = useI18n();
 const monitor = useMonitorStore();
+const memory = useMemoryCleanerStore();
 
 const uptimeLabel = computed(() => formatUptime(monitor.snapshot?.uptimeSeconds ?? 0));
 const diskFree = computed(() =>
@@ -19,6 +23,7 @@ const memoryPercent = computed(() => {
   return Math.min(100, Math.max(0, value));
 });
 const memoryPercentLabel = computed(() => Math.round(memoryPercent.value));
+const optimizing = computed(() => memory.loading);
 
 async function minimize() {
   await ApplicationWindowService.minimize();
@@ -28,6 +33,15 @@ async function toggleMax() {
 }
 async function close() {
   await ApplicationWindowService.closeOrHide();
+}
+
+/** Same path as tray Clean Memory — uses current Memory Cleaner area settings. */
+async function optimizeFromGauge() {
+  if (optimizing.value) return;
+  if (!memory.settingsLoaded) {
+    await memory.loadSettings();
+  }
+  await memory.run('tray');
 }
 </script>
 
@@ -60,18 +74,26 @@ async function close() {
         </div>
       </div>
 
-      <div
+      <button
+        type="button"
         class="memory-circle"
-        :title="`Memory ${memoryPercentLabel}% used`"
+        :class="{ busy: optimizing }"
+        :title="
+          optimizing
+            ? t('memoryCleaner.optimizing')
+            : t('titlebar.optimizeMemory', { percent: memoryPercentLabel })
+        "
         :style="{ '--mem': memoryPercent }"
-        role="meter"
+        :disabled="optimizing"
+        :aria-busy="optimizing"
         :aria-valuenow="memoryPercentLabel"
         aria-valuemin="0"
         aria-valuemax="100"
-        aria-label="Memory usage"
+        :aria-label="t('titlebar.optimizeMemory', { percent: memoryPercentLabel })"
+        @click.stop="optimizeFromGauge"
       >
         <span class="memory-circle-value">{{ memoryPercentLabel }}%</span>
-      </div>
+      </button>
 
       <div class="controls">
         <button type="button" class="ctrl" aria-label="Minimize" @click.stop="minimize">
@@ -186,6 +208,7 @@ async function close() {
   max-height: 40px;
   place-items: center;
   aspect-ratio: 1 / 1;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
   background:
@@ -201,6 +224,15 @@ async function close() {
     );
   box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent);
   color: var(--foreground);
+  cursor: pointer;
+}
+.memory-circle:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+}
+.memory-circle:disabled,
+.memory-circle.busy {
+  cursor: wait;
+  opacity: 0.85;
 }
 .memory-circle-value {
   position: relative;
