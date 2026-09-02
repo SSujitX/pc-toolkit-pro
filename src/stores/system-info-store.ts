@@ -1,5 +1,9 @@
 import { defineStore } from 'pinia';
-import { SystemInfoService, type SystemInformation } from '@/lib/services/api-services';
+import {
+  SystemInfoService,
+  type SystemInformation,
+  type SystemInfoProgress,
+} from '@/lib/services/api-services';
 import { PAGE_IDS } from '@/lib/models/application-shell';
 import { useAppStore } from './app-store';
 
@@ -9,6 +13,7 @@ export const useSystemInfoStore = defineStore('systemInfo', {
     loading: false,
     copied: false,
     error: null as string | null,
+    progress: null as SystemInfoProgress | null,
   }),
   actions: {
     async load() {
@@ -16,8 +21,16 @@ export const useSystemInfoStore = defineStore('systemInfo', {
       app.setBusy(PAGE_IDS.information, true);
       this.loading = true;
       this.error = null;
+      this.progress = {
+        phase: 'metrics',
+        current: 0,
+        total: 4,
+        message: '',
+      };
       try {
-        this.info = await SystemInfoService.load();
+        this.info = await SystemInfoService.loadWithProgress((progress) => {
+          this.progress = progress;
+        });
       } catch (error) {
         this.info = null;
         const message =
@@ -30,6 +43,7 @@ export const useSystemInfoStore = defineStore('systemInfo', {
         app.reportError(error);
       } finally {
         this.loading = false;
+        this.progress = null;
         app.setBusy(PAGE_IDS.information, false);
       }
     },
