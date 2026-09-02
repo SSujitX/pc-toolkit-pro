@@ -96,17 +96,29 @@ jobs:
           }
           $key = $env:TAURI_SIGNING_PRIVATE_KEY.Trim().Replace("`r", "")
           $path = Join-Path $env:RUNNER_TEMP "pctoolkit.key"
+          # UTF-8 no BOM — Out-File -Encoding utf8 adds a BOM and breaks GITHUB_ENV.
           [System.IO.File]::WriteAllText($path, $key)
-          "TAURI_SIGNING_PRIVATE_KEY_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "signing_key_chars=$($key.Length) password_chars=$($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD.Length)"
+          Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PATH=$path" -Encoding utf8NoBOM
+          Write-Host "signing_key_chars=$($key.Length) password_chars=$($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD.Length) path=$path"
 
       - name: Build Tauri app (NSIS only)
         # Skip MSI/WiX — NSIS .exe is enough for CI artifacts and much faster to package.
-        # Use key PATH (not inline env string) to avoid Windows runner mangling.
-        run: pnpm tauri build --bundles nsis
+        # Load key from the prepared file in this step so signing always sees a private key
+        # (GITHUB_ENV alone has failed when BOM / PATH handling dropped the var).
+        shell: pwsh
         env:
           CI: true
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PATH -or -not (Test-Path $env:TAURI_SIGNING_PRIVATE_KEY_PATH)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY_PATH missing or not a file (prepare step failed?)"
+          }
+          $env:TAURI_SIGNING_PRIVATE_KEY = [System.IO.File]::ReadAllText($env:TAURI_SIGNING_PRIVATE_KEY_PATH).Trim()
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "Private key file is empty"
+          }
+          Write-Host "build_signing_key_chars=$($env:TAURI_SIGNING_PRIVATE_KEY.Length)"
+          pnpm tauri build --bundles nsis
 
       - name: sccache stats
         if: always()
