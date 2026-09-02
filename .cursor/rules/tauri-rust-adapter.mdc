@@ -1,15 +1,17 @@
 ---
-description: Tauri 2 + Rust adapter boundaries inspired by MangoDisk Core
-globs: "**/src-tauri/**/*.{rs,toml,json}"
+description: Tauri 2 + Rust adapter boundaries for PC Toolkit Pro
+globs: "src-tauri/**/*.{rs,toml,json}"
 alwaysApply: false
 ---
 
 # Rust / Tauri adapter
 
+Follow root [`AGENTS.md`](../../AGENTS.md) and Rust [`src-tauri/AGENTS.md`](../../src-tauri/AGENTS.md).
+
 ## Boundaries
 
-- `crates/*-core`: product domains, safety, scan/cleanup — **no Tauri**.
-- `crates/*-platform`: OS facts and capabilities — **no product orchestration**.
+- `crates/pctoolkit-core`: product domains, safety, scan/cleanup — **no Tauri**.
+- `crates/pctoolkit-platform`: OS facts and capabilities — **no product orchestration**.
 - `src-tauri/src/commands`: thin async adapters only.
 
 ## Commands
@@ -23,12 +25,6 @@ alwaysApply: false
 
 ## Safety
 
-- Destructive ops: preview/dry-run, protected paths, explicit confirmation, verification.
-- Privileged Windows APIs need an explicit capability boundary.
+- Destructive ops: preview/scan, protected/denied-path skip, explicit confirmation, honest results.
+- Privileged Windows APIs need an explicit capability boundary; no PowerShell fake memory clean.
 - Logs: operation IDs, counts, timings — not full private paths or file contents.
-
-## Anti-patterns
-
-- Scan/cleanup algorithms inside `#[tauri::command]`
-- Catch-all `utils` / `manager` modules spanning unrelated domains
-- Expanding Tauri permissions "just in case"
