@@ -29,7 +29,7 @@ onMounted(() => {
         <RefreshCw :size="16" />
         {{ t('common.refresh') }}
       </button>
-      <button type="button" class="pt-btn primary" :disabled="!store.info" @click="store.copy()">
+      <button type="button" class="pt-btn pt-btn-primary" :disabled="!store.info" @click="store.copy()">
         {{ store.copied ? t('common.copied') : t('common.copy') }}
       </button>
     </template>
@@ -39,24 +39,32 @@ onMounted(() => {
     <div v-else-if="store.info" class="sections">
       <section class="card">
         <div class="card-top">
-          <Server :size="18" />
-          <span>{{ t('information.system') }}</span>
-        </div>
-        <p class="lead">{{ store.info.hostname }} · {{ store.info.username }}</p>
-        <p>{{ store.info.osEdition }} {{ store.info.osVersion }} (Build {{ store.info.osBuild }})</p>
-        <p>{{ t('information.uptime') }}: {{ store.info.uptime }}</p>
-      </section>
-
-      <section class="card">
-        <div class="card-top">
           <Cpu :size="18" />
           <span>{{ t('information.processor') }}</span>
         </div>
         <p class="lead">{{ store.info.cpuName }}</p>
         <p>
-          {{ store.info.cpuCores }}C / {{ store.info.cpuThreads }}T ·
+          {{ store.info.cpuCores }} cores, {{ store.info.cpuThreads }} threads ·
           {{ store.info.cpuUsage.toFixed(1) }}%
         </p>
+        <p>{{ store.info.cpuFrequency }}</p>
+        <p>{{ store.info.cpuCache }}</p>
+        <p>Socket: {{ store.info.cpuSocket }}</p>
+      </section>
+
+      <section class="card">
+        <div class="card-top">
+          <HardDrive :size="18" />
+          <span>{{ t('information.disk') }}</span>
+        </div>
+        <p class="lead">{{ store.info.diskDevice }}</p>
+        <p>{{ store.info.diskType }}</p>
+        <p>
+          {{ formatBytes(store.info.diskUsed) }} / {{ formatBytes(store.info.diskTotal) }} ({{
+            store.info.diskPercent.toFixed(1)
+          }}%)
+        </p>
+        <p>Free: {{ formatBytes(store.info.diskFree) }}</p>
       </section>
 
       <section class="card">
@@ -67,18 +75,9 @@ onMounted(() => {
         <p class="lead">
           {{ formatBytes(store.info.memoryUsed) }} / {{ formatBytes(store.info.memoryTotal) }}
         </p>
-        <p>{{ store.info.memoryPercent.toFixed(1) }}%</p>
-      </section>
-
-      <section class="card">
-        <div class="card-top">
-          <HardDrive :size="18" />
-          <span>{{ t('information.disk') }}</span>
-        </div>
-        <p class="lead">
-          {{ formatBytes(store.info.diskUsed) }} / {{ formatBytes(store.info.diskTotal) }}
-        </p>
-        <p>{{ store.info.diskPercent.toFixed(1) }}%</p>
+        <p>Available: {{ formatBytes(store.info.memoryAvailable) }}</p>
+        <p>RAM: {{ store.info.ramName }}</p>
+        <p>{{ store.info.ramType }} · {{ store.info.ramSpeed }} · {{ store.info.ramSlotsUsed }}</p>
       </section>
 
       <section class="card">
@@ -102,40 +101,27 @@ onMounted(() => {
           <CircuitBoard :size="18" />
           <span>{{ t('information.motherboard') }}</span>
         </div>
-        <p class="lead">{{ store.info.motherboard }}</p>
-        <p>{{ t('information.bios') }}: {{ store.info.bios }}</p>
+        <p class="lead">{{ store.info.motherboardProduct }}</p>
+        <p>{{ store.info.motherboardManufacturer }} · {{ store.info.motherboardVersion }}</p>
+        <p>Chipset: {{ store.info.chipset }}</p>
+        <p>BIOS: {{ store.info.biosVersion }} ({{ store.info.biosManufacturer }})</p>
+        <p>BIOS date: {{ store.info.biosDate }}</p>
+        <p>Model: {{ store.info.systemModel }}</p>
+        <p>
+          Memory slots: {{ store.info.memorySlotsTotal }} · Max {{ store.info.maxMemoryCapacity }}
+        </p>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-top">
           <Zap :size="18" />
-          <span>{{ t('information.power') }}</span>
+          <span>{{ t('information.powerSupply') }}</span>
         </div>
-        <p>
-          <span class="label">{{ t('information.powerPlan') }}</span>
-          {{ store.info.powerPlan }}
+        <p class="lead">{{ store.info.powerSupplyName }}</p>
+        <p v-if="store.info.batteries.length" class="with-icon">
+          <Battery :size="14" />
+          {{ store.info.batteries.join(' · ') }}
         </p>
-        <p>
-          <span class="label">{{ t('information.acStatus') }}</span>
-          {{ store.info.acLineStatus }}
-        </p>
-        <p>
-          <span class="label">{{ t('information.powerSupply') }}</span>
-        </p>
-        <template v-if="store.info.powerSupplies.length">
-          <p v-for="(row, i) in store.info.powerSupplies" :key="`psu-${i}`">{{ row }}</p>
-        </template>
-        <p v-else class="muted">{{ t('information.psuUnavailable') }}</p>
-        <p>
-          <span class="label">{{ t('information.battery') }}</span>
-        </p>
-        <template v-if="store.info.batteries.length">
-          <p v-for="(row, i) in store.info.batteries" :key="`bat-${i}`" class="with-icon">
-            <Battery :size="14" />
-            {{ row }}
-          </p>
-        </template>
-        <p v-else class="muted">{{ t('information.noneReported') }}</p>
       </section>
 
       <section class="card">
@@ -152,8 +138,21 @@ onMounted(() => {
           <HardDrive :size="18" />
           <span>{{ t('information.storage') }}</span>
         </div>
-        <p v-for="(s, i) in store.info.storageDevices" :key="i">{{ s }}</p>
+        <p v-for="(s, i) in store.info.storageDevices" :key="i">
+          Storage {{ i + 1 }}: {{ s }}
+        </p>
         <p v-if="!store.info.storageDevices.length" class="muted">—</p>
+      </section>
+
+      <section class="card wide">
+        <div class="card-top">
+          <Server :size="18" />
+          <span>{{ t('information.system') }}</span>
+        </div>
+        <p class="lead">{{ store.info.hostname }} · {{ store.info.username }}</p>
+        <p>{{ store.info.osEdition }} {{ store.info.osVersion }} (Build {{ store.info.osBuild }})</p>
+        <p>{{ store.info.osExperience }}</p>
+        <p>{{ t('information.uptime') }}: {{ store.info.uptime }}</p>
       </section>
     </div>
 
@@ -208,12 +207,6 @@ p {
   font-size: 0.8125rem;
   color: var(--foreground);
 }
-.label {
-  display: inline-block;
-  min-width: 7.5rem;
-  color: var(--muted-foreground);
-  font-weight: 600;
-}
 .muted {
   color: var(--muted-foreground);
 }
@@ -221,28 +214,6 @@ p {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.pt-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--card);
-  color: var(--foreground);
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.pt-btn.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
-}
-.pt-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 .state {
   color: var(--muted-foreground);
