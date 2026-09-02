@@ -21,6 +21,14 @@ export const useMonitorStore = defineStore('monitor', {
         this.loading = false;
       }
     },
+    /** Quiet refresh for post-optimize / tray — do not flip loading chrome. */
+    async refreshQuiet() {
+      try {
+        this.snapshot = await MonitorService.snapshot();
+      } catch {
+        // keep last snapshot
+      }
+    },
     startPolling() {
       void this.refresh();
       if (this.timer != null) return;
