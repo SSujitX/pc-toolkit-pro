@@ -7,6 +7,7 @@ withDefaults(
     title: string;
     sourceLabel?: string;
     sourceValue?: string;
+    sourceIcon?: Component;
     progress?: number;
     hint?: string;
     stats?: Array<{ label: string; value: string }>;
@@ -16,6 +17,7 @@ withDefaults(
   {
     sourceLabel: undefined,
     sourceValue: undefined,
+    sourceIcon: undefined,
     progress: 0,
     hint: undefined,
     stats: () => [],
@@ -40,7 +42,7 @@ const emit = defineEmits<{ cancel: [] }>();
               cy="24"
               r="20"
               :style="{
-                strokeDasharray: `${Math.max(8, (progress / 100) * 126)} 126`,
+                strokeDasharray: `${Math.max(10, (progress / 100) * 126)} 126`,
               }"
             />
           </svg>
@@ -55,12 +57,22 @@ const emit = defineEmits<{ cancel: [] }>();
       </div>
 
       <div v-if="sourceValue" class="source">
-        <span class="source-label">{{ sourceLabel }}</span>
-        <code>{{ sourceValue }}</code>
+        <component
+          :is="sourceIcon"
+          v-if="sourceIcon"
+          class="source-icon"
+          :size="16"
+          :stroke-width="1.8"
+        />
+        <div class="source-copy">
+          <span class="source-label">{{ sourceLabel }}</span>
+          <code>{{ sourceValue }}</code>
+        </div>
+        <span class="source-elapsed" />
       </div>
 
       <div class="bar">
-        <span :style="{ width: `${Math.min(100, Math.max(4, progress))}%` }" />
+        <span :style="{ width: `${Math.min(100, Math.max(6, progress))}%` }" />
       </div>
 
       <div v-if="stats?.length" class="stats">
@@ -72,7 +84,7 @@ const emit = defineEmits<{ cancel: [] }>();
 
       <p v-if="hint" class="hint">{{ hint }}</p>
 
-      <button type="button" class="pt-btn cancel" @click="emit('cancel')">
+      <button type="button" class="cancel" @click="emit('cancel')">
         {{ cancelLabel }}
       </button>
     </div>
@@ -86,39 +98,39 @@ const emit = defineEmits<{ cancel: [] }>();
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 12px;
+  padding: 16px;
 }
 .op-card {
-  width: min(560px, 100%);
-  border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
-  border-radius: 20px;
+  width: min(520px, 100%);
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  border-radius: 18px;
   background: var(--card);
   box-shadow: var(--shadow-card);
-  padding: 28px 28px 22px;
+  padding: 26px 26px 20px;
 }
 .op-head {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 .ring-wrap {
   position: relative;
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   flex: none;
 }
 .ring {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   transform: rotate(-90deg);
 }
 .ring-track,
 .ring-value {
   fill: none;
-  stroke-width: 3.5;
+  stroke-width: 3.25;
 }
 .ring-track {
-  stroke: var(--muted);
+  stroke: color-mix(in oklab, var(--primary) 18%, var(--muted));
 }
 .ring-value {
   stroke: var(--primary);
@@ -133,45 +145,61 @@ const emit = defineEmits<{ cancel: [] }>();
 }
 .op-copy .status {
   color: var(--primary);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .op-copy .title {
   margin-top: 2px;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--foreground);
 }
 .source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 18px;
   border-radius: 12px;
   background: var(--surface-soft);
   padding: 12px 14px;
 }
+.source-icon {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.source-copy {
+  min-width: 0;
+  flex: 1;
+}
 .source-label {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   color: var(--muted-foreground);
   font-size: 0.6875rem;
   font-weight: 600;
 }
 .source code {
+  display: block;
+  overflow: hidden;
+  color: var(--foreground);
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-size: 0.75rem;
-  word-break: break-all;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .bar {
-  margin-top: 16px;
-  height: 6px;
+  margin-top: 12px;
+  height: 4px;
   border-radius: 999px;
-  background: var(--muted);
+  background: color-mix(in oklab, var(--primary) 16%, var(--muted));
   overflow: hidden;
 }
 .bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--primary), color-mix(in oklab, var(--primary) 70%, black));
+  background: var(--primary);
 }
 .stats {
   display: grid;
@@ -192,8 +220,9 @@ const emit = defineEmits<{ cancel: [] }>();
 .stat strong {
   display: block;
   margin-top: 4px;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 700;
+  color: var(--foreground);
 }
 .hint {
   margin: 16px 0 0;
@@ -205,6 +234,15 @@ const emit = defineEmits<{ cancel: [] }>();
   width: 100%;
   margin-top: 16px;
   min-height: 44px;
+  border: 1px solid var(--border);
   border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cancel:hover {
+  background: var(--muted);
 }
 </style>
