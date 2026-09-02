@@ -20,4 +20,7 @@ pub use memory::{
 pub use monitor::{is_user_admin, require_admin, sample_monitor, MonitorSample, OsLabel};
 pub use power::{cancel_scheduled_shutdown, execute_power_action, schedule_shutdown, PowerAction};
 pub use recycle::empty_recycle_bin;
-pub use system_info::{load_system_information, SystemInformation};
+pub use system_info::{
+    load_system_information, load_system_information_with_progress, SystemInfoProgress,
+    SystemInformation,
+};
