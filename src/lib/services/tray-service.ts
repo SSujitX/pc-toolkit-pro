@@ -1,6 +1,7 @@
 import { TrayIcon } from '@tauri-apps/api/tray';
 import { Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tauri-apps/api/menu';
 import { defaultWindowIcon } from '@tauri-apps/api/app';
+import { Image } from '@tauri-apps/api/image';
 import { exit } from '@tauri-apps/plugin-process';
 import { ApplicationWindowService } from './application-window-service';
 import { MonitorService, PowerService } from './api-services';
@@ -9,6 +10,9 @@ import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { PAGE_IDS } from '@/lib/models/application-shell';
 import { formatBytes } from '@/lib/utils/format';
 import { i18n } from '@/i18n';
+
+/** Must match `TRAY_ID` in `src-tauri/src/lib.rs`. */
+const TRAY_ID = 'pctoolkit-main-tray';
 
 let tray: TrayIcon | null = null;
 let tooltipTimer: number | null = null;
@@ -27,6 +31,18 @@ function memoryStatusLabel(percent: number): string {
 async function openPage(pageId: (typeof PAGE_IDS)[keyof typeof PAGE_IDS]) {
   useAppStore().navigate(pageId);
   await ApplicationWindowService.showAfterMount();
+}
+
+async function resolveTrayIcon(): Promise<Image | Uint8Array> {
+  const fromApp = await defaultWindowIcon();
+  if (fromApp) return fromApp;
+
+  // Dev / fallback: public/icon.png is always available to the webview.
+  const response = await fetch('/icon.png');
+  if (!response.ok) {
+    throw new Error(`tray icon fetch failed (${response.status})`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 async function runCleanMemoryFromTray() {
@@ -190,24 +206,39 @@ export async function setupTray(): Promise<void> {
       ],
     });
 
-    const icon = await defaultWindowIcon();
-    tray = await TrayIcon.new({
-      icon: icon ?? undefined,
-      menu,
-      tooltip: t('app.name'),
-      showMenuOnLeftClick: false,
-      action: async (event) => {
-        if (event.type !== 'Click' || event.buttonState !== 'Up') return;
-        if (event.button === 'Left') {
-          await ApplicationWindowService.showAfterMount();
-          return;
-        }
-        // Middle-click cleans without opening the window.
-        if (event.button === 'Middle') {
-          await runCleanMemoryFromTray();
-        }
-      },
-    });
+    // Prefer the Rust-created tray (always has a real Windows icon).
+    tray = await TrayIcon.getById(TRAY_ID);
+    if (!tray) {
+      const icon = await resolveTrayIcon();
+      tray = await TrayIcon.new({
+        id: TRAY_ID,
+        icon,
+        menu,
+        tooltip: t('app.name'),
+        showMenuOnLeftClick: false,
+        action: async (event) => {
+          if (event.type !== 'Click' || event.buttonState !== 'Up') return;
+          if (event.button === 'Left') {
+            await ApplicationWindowService.showAfterMount();
+            return;
+          }
+          if (event.button === 'Middle') {
+            await runCleanMemoryFromTray();
+          }
+        },
+      });
+    } else {
+      await tray.setMenu(menu);
+      await tray.setTooltip(t('app.name'));
+      await tray.setShowMenuOnLeftClick(false);
+      await tray.setVisible(true);
+      // Re-assert icon in case the host started without one.
+      try {
+        await tray.setIcon(await resolveTrayIcon());
+      } catch {
+        // keep Rust-provided icon
+      }
+    }
 
     tooltipTimer = window.setInterval(async () => {
       if (cleaningFromTray) return;
@@ -216,7 +247,6 @@ export async function setupTray(): Promise<void> {
         const gpu = snap.gpuAvailable
           ? ` · GPU ${snap.gpuUtilization?.toFixed(0) ?? 0}%`
           : '';
-        // Lead with RAM % for usage at a glance.
         await tray?.setTooltip(
           `RAM ${snap.memoryPercent.toFixed(0)}% · CPU ${snap.cpu.toFixed(0)}%${gpu}`
         );
@@ -226,7 +256,6 @@ export async function setupTray(): Promise<void> {
       }
     }, 2000);
 
-    // Seed status immediately so the first open isn’t “0%”.
     void MonitorService.snapshot()
       .then(async (snap) => {
         await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
@@ -235,8 +264,9 @@ export async function setupTray(): Promise<void> {
         );
       })
       .catch(() => undefined);
-  } catch {
-    // Browser / unsupported environments skip tray.
+  } catch (error) {
+    // Surface tray failures — silent catch made the icon disappear with no clue.
+    useAppStore().reportError(error);
   }
 }
 
