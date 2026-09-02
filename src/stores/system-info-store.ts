@@ -8,15 +8,25 @@ export const useSystemInfoStore = defineStore('systemInfo', {
     info: null as SystemInformation | null,
     loading: false,
     copied: false,
+    error: null as string | null,
   }),
   actions: {
     async load() {
       const app = useAppStore();
       app.setBusy(PAGE_IDS.information, true);
       this.loading = true;
+      this.error = null;
       try {
         this.info = await SystemInfoService.load();
       } catch (error) {
+        this.info = null;
+        const message =
+          error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : 'Failed to load system information';
+        this.error = message;
         app.reportError(error);
       } finally {
         this.loading = false;
