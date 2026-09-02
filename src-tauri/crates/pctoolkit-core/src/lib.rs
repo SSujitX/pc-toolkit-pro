@@ -26,7 +26,8 @@ pub use power::{
     cancel_scheduled_shutdown, execute_power, schedule_shutdown, PowerAction, ScheduleRequest,
 };
 pub use shared::{CoreError, CoreErrorCode, CoreResult};
-pub use system_info::get_system_information;
+pub use system_info::{get_system_information, get_system_information_with_progress};
+pub use pctoolkit_platform::SystemInfoProgress;
 
 // Re-export memory types used by the frontend adapter.
 pub use pctoolkit_platform::{
