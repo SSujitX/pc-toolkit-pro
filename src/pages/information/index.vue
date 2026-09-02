@@ -1,40 +1,117 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Battery,
   CircuitBoard,
   Cpu,
   HardDrive,
+  Info,
   Monitor,
   RefreshCw,
   Server,
   Zap,
 } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
+import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue';
 import { formatBytes } from '@/lib/utils/format';
 import { useSystemInfoStore } from '@/stores/system-info-store';
 
 const { t } = useI18n();
 const store = useSystemInfoStore();
+const elapsedSec = ref(0);
+let elapsedTimer: number | null = null;
+
+const isBusy = computed(() => store.loading);
+const progressPct = computed(() => {
+  if (!store.progress?.total) return isBusy.value ? 18 : 0;
+  return Math.round((store.progress.current / store.progress.total) * 100);
+});
+
+const phaseLabel = computed(() => {
+  switch (store.progress?.phase) {
+    case 'metrics':
+      return t('information.phaseMetrics');
+    case 'hardware':
+      return t('information.phaseHardware');
+    case 'gpu':
+      return t('information.phaseGpu');
+    case 'assemble':
+      return t('information.phaseAssemble');
+    default:
+      return t('information.phaseMetrics');
+  }
+});
+
+const stats = computed(() => [
+  {
+    label: t('information.elapsed'),
+    value: `${elapsedSec.value} sec`,
+  },
+  {
+    label: t('information.loadingSource'),
+    value: store.progress
+      ? `${store.progress.current} / ${store.progress.total}`
+      : '—',
+  },
+]);
+
+watch(isBusy, (busy) => {
+  if (busy) {
+    elapsedSec.value = 0;
+    if (elapsedTimer != null) window.clearInterval(elapsedTimer);
+    elapsedTimer = window.setInterval(() => {
+      elapsedSec.value += 1;
+    }, 1000);
+  } else if (elapsedTimer != null) {
+    window.clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+});
+
 onMounted(() => {
   void store.load();
+});
+
+onUnmounted(() => {
+  if (elapsedTimer != null) window.clearInterval(elapsedTimer);
 });
 </script>
 
 <template>
-  <PtPageShell :title="t('information.title')" :subtitle="t('information.subtitle')">
+  <PtPageShell
+    :title="t('information.title')"
+    :subtitle="t('information.subtitle')"
+    content-mode="workspace"
+  >
     <template #actions>
       <button type="button" class="pt-btn" :disabled="store.loading" @click="store.load()">
         <RefreshCw :size="16" />
         {{ t('common.refresh') }}
       </button>
-      <button type="button" class="pt-btn pt-btn-primary" :disabled="!store.info" @click="store.copy()">
+      <button
+        type="button"
+        class="pt-btn pt-btn-primary"
+        :disabled="!store.info || store.loading"
+        @click="store.copy()"
+      >
         {{ store.copied ? t('common.copied') : t('common.copy') }}
       </button>
     </template>
 
-    <div v-if="store.loading && !store.info" class="state">{{ t('common.loading') }}</div>
+    <PtOperationWorkspace
+      v-if="isBusy"
+      :status="t('information.loadingStatus')"
+      :title="t('information.loadingTitle')"
+      :source-label="t('information.loadingSource')"
+      :source-value="phaseLabel"
+      :source-icon="Info"
+      :progress="progressPct"
+      :stats="stats"
+      :hint="t('information.loadingHint')"
+      :icon="Info"
+      :cancellable="false"
+    />
 
     <div v-else-if="store.info" class="sections">
       <section class="card">
@@ -169,6 +246,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  padding: 4px 2px 12px;
+  overflow: auto;
+  min-height: 0;
+  height: 100%;
 }
 .card {
   border: 1px solid var(--border);
@@ -222,6 +303,7 @@ p {
 }
 .state.empty {
   max-width: 36rem;
+  margin: 24px auto;
 }
 .state.empty h3 {
   margin: 0 0 8px;
