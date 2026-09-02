@@ -9,7 +9,8 @@
 
 ## Learned Workspace Facts
 
-- Production app on `master` is Python 3.13 + PyQt6, shipped as a Windows PyInstaller tray utility with deep Win32/system integration.
-- Active rewrite branch is `feat/tauri-rewrite`; `tauri-poc` is a vanilla-ts Tauri 2 scaffold, not the final Vue shell yet.
+- Production PyQt app historically lived on `master`; the Tauri rewrite on `feat/tauri-rewrite` replaces Python with root `src/` + `src-tauri/` (Vue 3 + Rust core/platform).
+- Active rewrite branch is `feat/tauri-rewrite`; Python sources are removed on this branch after parity implementation.
 - UI/architecture reference is harry0703/MangoDisk (Tauri 2 + Vue + Rust core); use patterns only—do not copy GPL source or mango branding.
 - Project Cursor guidance lives under `.cursor/skills/mangodisk-style-desktop-ui/` and `.cursor/rules/mangodisk-style-ui.mdc` plus `tauri-rust-adapter.mdc`.
+- Windows CI build: `.github/workflows/tauri-build.yml` (MSVC available on `windows-latest`).

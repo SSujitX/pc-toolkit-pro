@@ -1,0 +1,104 @@
+{
+  "app": {
+    "name": "PC Toolkit Pro",
+    "tagline": "Clean • Monitor • Optimize • Control"
+  },
+  "navigation": {
+    "monitor": "System",
+    "cleaner": "Cleaner",
+    "power": "Power",
+    "information": "Information",
+    "settings": "Settings",
+    "systemGroup": "Tools"
+  },
+  "common": {
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "scan": "Scan",
+    "clean": "Clean selected",
+    "refresh": "Refresh",
+    "copy": "Copy to clipboard",
+    "copied": "Copied",
+    "loading": "Loading…",
+    "busy": "Working…",
+    "adminRequired": "Administrator rights required",
+    "error": "Something went wrong"
+  },
+  "monitor": {
+    "title": "System",
+    "subtitle": "Live CPU, memory, disk, and GPU metrics",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "disk": "Disk C:",
+    "gpu": "GPU",
+    "uptime": "Uptime",
+    "os": "OS",
+    "quickActions": "Quick Actions",
+    "notAvailable": "Not Available"
+  },
+  "actions": {
+    "taskManager": "Task Manager",
+    "deviceManager": "Device Manager",
+    "controlPanel": "Control Panel",
+    "diskManagement": "Disk Management",
+    "commandPromptAdmin": "CMD (Admin)",
+    "powerShellAdmin": "PowerShell (Admin)",
+    "systemInfo": "System Info",
+    "registryEditor": "Registry Editor",
+    "settings": "Settings",
+    "services": "Services",
+    "fileExplorer": "File Explorer",
+    "networkConnections": "Network",
+    "snippingTool": "Snipping Tool",
+    "notepad": "Notepad",
+    "volumeMixer": "Volume Mixer"
+  },
+  "cleaner": {
+    "title": "Cleaner",
+    "subtitle": "Scan first, then confirm what to remove",
+    "tempFiles": "Temp & Prefetch",
+    "recycleBin": "Recycle Bin",
+    "diskCleanup": "Windows Disk Cleanup",
+    "freeMemory": "Free Memory (measured)",
+    "scanHint": "Scanning only reads sizes — nothing is deleted until you confirm.",
+    "result": "Freed {bytes} · {files} items",
+    "empty": "Run a scan to see reclaimable items"
+  },
+  "power": {
+    "title": "Power",
+    "subtitle": "Immediate actions and scheduled shutdown",
+    "shutdown": "Shutdown",
+    "restart": "Restart",
+    "sleep": "Sleep",
+    "hibernate": "Hibernate",
+    "lock": "Lock Screen",
+    "signOut": "Sign Out",
+    "schedule": "Schedule Shutdown",
+    "cancelSchedule": "Cancel Scheduled",
+    "minutes": "Minutes",
+    "hours": "Hours",
+    "confirmShutdown": "Shut down this PC now?",
+    "confirmRestart": "Restart this PC now?",
+    "confirmSignOut": "Sign out the current user?",
+    "confirmSchedule": "Schedule shutdown in {value} {unit}?"
+  },
+  "information": {
+    "title": "Information",
+    "subtitle": "Hardware and operating system details"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Theme and about",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "about": "About",
+    "version": "Version {version}"
+  },
+  "tray": {
+    "show": "Show PC Toolkit Pro",
+    "exit": "Exit"
+  }
+}

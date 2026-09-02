@@ -1,16 +1,18 @@
-# 🚀 PC Toolkit Pro v2.9 - Bug Fixes
+# PC Toolkit Pro v3.0.0
 
-**Version:** 2.9
+## What's New
 
----
+- Full rewrite to Tauri 2 + Vue 3 + Rust core
+- MangoDisk-style dense desktop UI with PC Toolkit branding
+- Fast load: window shows only after UI mount; no startup scans
+- Cleaner with scan/confirm/progress/cancel and measured memory reclaim
+- System tray, power controls, deep information panel, quick actions
 
-## 🐛 Bug Fixes
+## Download
 
-- **🔧 Chipset Detection**: Fixed hardcoded chipset value, now dynamically detects AMD (B650, X670, B550, X570, B450, X470) and Intel (Z790, Z690, B760, B660) chipsets with CPU-based fallback estimation
+Use GitHub Actions artifacts from `feat/tauri-rewrite` or a tagged Tauri release once published.
 
-## ✨ New Features & Optimizations
+## Notes
 
-- **🖥️ Enhanced Information Tab**: Added comprehensive system details (monitor info, motherboard specs, complete storage overview) with copy-to-clipboard functionality
-- **⚡ Performance Boost**: Implemented lazy loading, caching, and optimized update intervals for faster startup and reduced RAM/GPU usage
-- **🧹 Memory Cleanup**: Added free RAM option in system cleaner for better memory management
-- **📊 Storage Display**: Simplified storage view to show total capacity only, removing complex used space calculations
+- Administrator rights still required for full temp cleaning / Disk Cleanup
+- NVIDIA metrics require `nvidia-smi` on PATH

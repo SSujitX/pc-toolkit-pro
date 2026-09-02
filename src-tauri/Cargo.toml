@@ -1,0 +1,28 @@
+[package]
+name = "pc-toolkit-pro"
+version = "3.0.0"
+description = "PC Toolkit Pro — Windows system manager"
+authors = ["SSujitX"]
+edition = "2021"
+
+[lib]
+name = "pc_toolkit_pro_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[workspace]
+members = [".", "crates/pctoolkit-core", "crates/pctoolkit-platform"]
+resolver = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+pctoolkit-core = { path = "crates/pctoolkit-core" }
+pctoolkit-platform = { path = "crates/pctoolkit-platform" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"

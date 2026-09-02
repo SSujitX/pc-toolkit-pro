@@ -1,4 +1,4 @@
-# Python
+# Python leftovers
 __pycache__/
 *.py[cod]
 *.pyo
@@ -11,31 +11,36 @@ dist/
 *.egg-info/
 *.egg
 
-# PyInstaller
-*.spec
-*.exe
-
 # Virtual environments
 .venv/
 venv/
 
-# UV package manager
-.python-version
-
-# IDE
+# IDE / OS
 .vscode/
 .idea/
-
-# OS
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# Logs
+# Logs / temp
 *.log
-
-# Temporary files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 *.tmp
 *.bak
 
-hooks/
+# Node / Tauri
+node_modules
+dist-ssr
+*.local
+src-tauri/target
+.cursor/hooks/
+
+# Editor junk
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
