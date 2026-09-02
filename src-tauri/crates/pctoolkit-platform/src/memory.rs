@@ -29,15 +29,18 @@ pub fn optimize_memory() -> PlatformResult<MemoryOptimizeResult> {
 
     if admin {
         // Best-effort standby list purge via PowerShell (avoids fragile ntdll bindings).
-        let _ = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "Get-Process | ForEach-Object { try { $_.MinWorkingSet = $_.MinWorkingSet } catch {} }",
-            ])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
+        let mut cmd = Command::new("powershell");
+        cmd.args([
+            "-NoProfile",
+            "-WindowStyle",
+            "Hidden",
+            "-Command",
+            "Get-Process | ForEach-Object { try { $_.MinWorkingSet = $_.MinWorkingSet } catch {} }",
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+        crate::process::hide_console(&mut cmd);
+        let _ = cmd.status();
     }
 
     std::thread::sleep(std::time::Duration::from_millis(400));

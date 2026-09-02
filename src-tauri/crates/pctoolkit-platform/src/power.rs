@@ -43,14 +43,18 @@ pub fn schedule_shutdown(seconds: u64) -> PlatformResult<()> {
 }
 
 pub fn cancel_scheduled_shutdown() -> PlatformResult<()> {
-    let _ = Command::new("shutdown").args(["/a"]).status();
+    let mut cmd = Command::new("shutdown");
+    cmd.args(["/a"]);
+    crate::process::hide_console(&mut cmd);
+    let _ = cmd.status();
     Ok(())
 }
 
 fn run_shutdown(args: &[&str]) -> PlatformResult<()> {
-    Command::new("shutdown")
-        .args(args)
-        .spawn()
+    let mut cmd = Command::new("shutdown");
+    cmd.args(args);
+    crate::process::hide_console(&mut cmd);
+    cmd.spawn()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
     Ok(())
 }

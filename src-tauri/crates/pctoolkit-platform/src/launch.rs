@@ -52,18 +52,19 @@ fn spawn(program: &str, args: &[&str]) -> PlatformResult<()> {
 }
 
 fn spawn_shell(target: &str) -> PlatformResult<()> {
-    Command::new("cmd")
-        .args(["/C", "start", "", target])
-        .spawn()
+    let mut cmd = Command::new("cmd");
+    cmd.args(["/C", "start", "", target]);
+    crate::process::hide_console(&mut cmd);
+    cmd.spawn()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
     Ok(())
 }
 
 fn launch_settings() -> PlatformResult<()> {
-    let result = Command::new("cmd")
-        .args(["/C", "start", "", "ms-settings:"])
-        .spawn();
-    if result.is_err() {
+    let mut cmd = Command::new("cmd");
+    cmd.args(["/C", "start", "", "ms-settings:"]);
+    crate::process::hide_console(&mut cmd);
+    if cmd.spawn().is_err() {
         return spawn("control", &[]);
     }
     Ok(())
@@ -74,9 +75,10 @@ fn elevate(program: &str) -> PlatformResult<()> {
         "Start-Process {} -Verb RunAs -WorkingDirectory 'C:\\Windows\\System32'",
         program
     );
-    Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
-        .spawn()
+    let mut cmd = Command::new("powershell");
+    cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script]);
+    crate::process::hide_console(&mut cmd);
+    cmd.spawn()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
     Ok(())
 }

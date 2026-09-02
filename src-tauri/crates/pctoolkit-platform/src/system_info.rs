@@ -231,10 +231,10 @@ fn format_uptime(seconds: u64) -> String {
 }
 
 fn query_ps(expression: &str) -> Option<String> {
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-Command", expression])
-        .output()
-        .ok()?;
+    let mut cmd = Command::new("powershell");
+    cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", expression]);
+    crate::process::hide_console(&mut cmd);
+    let output = cmd.output().ok()?;
     if !output.status.success() {
         return None;
     }

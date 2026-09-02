@@ -6,6 +6,7 @@ mod launch;
 mod memory;
 mod monitor;
 mod power;
+mod process;
 mod recycle;
 mod system_info;
 

@@ -19,11 +19,7 @@ pub fn sample_nvidia() -> PlatformResult<GpuSample> {
         "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
         "--format=csv,noheader,nounits",
     ]);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000);
-    }
+    crate::process::hide_console(&mut cmd);
     let output = cmd
         .output()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;

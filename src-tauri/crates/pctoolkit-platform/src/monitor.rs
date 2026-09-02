@@ -98,11 +98,12 @@ pub fn boot_time_unix() -> u64 {
 pub fn is_user_admin() -> bool {
     #[cfg(windows)]
     {
-        std::process::Command::new("net")
-            .args(["session"])
+        let mut cmd = std::process::Command::new("net");
+        cmd.args(["session"])
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
+            .stderr(std::process::Stdio::null());
+        crate::process::hide_console(&mut cmd);
+        cmd.status()
             .map(|s| s.success())
             .unwrap_or(false)
     }
