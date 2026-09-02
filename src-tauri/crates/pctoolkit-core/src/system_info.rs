@@ -1,4 +1,6 @@
-use pctoolkit_platform::load_system_information;
+use pctoolkit_platform::{
+    load_system_information_with_progress, SystemInfoProgress, SystemInformation,
+};
 use serde::Serialize;
 
 use crate::shared::CoreResult;
@@ -62,8 +64,18 @@ pub struct SystemInformationDto {
 }
 
 pub fn get_system_information() -> CoreResult<SystemInformationDto> {
-    let info = load_system_information()?;
-    Ok(SystemInformationDto {
+    get_system_information_with_progress(|_| {})
+}
+
+pub fn get_system_information_with_progress(
+    mut on_progress: impl FnMut(SystemInfoProgress),
+) -> CoreResult<SystemInformationDto> {
+    let info = load_system_information_with_progress(|progress| on_progress(progress))?;
+    Ok(to_dto(info))
+}
+
+fn to_dto(info: SystemInformation) -> SystemInformationDto {
+    SystemInformationDto {
         uptime: info.uptime,
         cpu_name: info.cpu_name,
         cpu_cores: info.cpu_cores,
@@ -117,5 +129,5 @@ pub fn get_system_information() -> CoreResult<SystemInformationDto> {
         batteries: info.batteries,
         ac_line_status: info.ac_line_status,
         copy_text: info.copy_text,
-    })
+    }
 }
