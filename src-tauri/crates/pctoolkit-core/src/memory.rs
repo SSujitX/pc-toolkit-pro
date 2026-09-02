@@ -210,7 +210,7 @@ fn release_busy() {
 
 pub fn optimize_memory(
     request: OptimizeMemoryRequest,
-    on_progress: impl Fn(MemoryProgress),
+    mut on_progress: impl FnMut(MemoryProgress),
 ) -> CoreResult<MemoryOptimizeResult> {
     acquire_busy()?;
     let started_at_ms = history_now_ms();
@@ -353,7 +353,7 @@ fn format_area_line(outcome: &AreaOutcome) -> String {
 
 /// Used by Cleaner / Deep Cleaner `freeMemory` category — same engine + saved areas.
 pub fn optimize_from_cleaner_category(
-    on_progress: impl Fn(usize, usize, MemoryArea),
+    mut on_progress: impl FnMut(usize, usize, MemoryArea),
     should_cancel: impl Fn() -> bool,
 ) -> CoreResult<MemoryOptimizeResult> {
     let areas = selected_areas_from_settings(&load_settings());
