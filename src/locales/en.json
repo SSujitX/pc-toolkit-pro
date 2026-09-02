@@ -33,6 +33,9 @@
     "adminRequired": "Administrator rights required",
     "error": "Something went wrong"
   },
+  "titlebar": {
+    "optimizeMemory": "Memory {percent}% used — click to optimize"
+  },
   "monitor": {
     "title": "System",
     "subtitle": "Live CPU, memory, disk, and GPU metrics",
@@ -121,6 +124,7 @@
     "autoBelow": "Below {percent}% free",
     "adminHint": "Some areas need administrator privileges. Without elevation they are skipped and listed honestly in the result — nothing is faked.",
     "run": "Optimize memory",
+    "optimizing": "Optimizing memory…",
     "confirm": "Optimize the selected memory areas and report the measured free-RAM change?",
     "cleaning": "Optimizing",
     "cleaningTitle": "Optimizing memory areas…",
@@ -197,10 +201,13 @@
     "lock": "Lock Screen",
     "signOut": "Sign Out",
     "schedule": "Schedule Shutdown",
+    "scheduleConfirm": "Schedule",
     "scheduleTitle": "Scheduled shutdown",
     "scheduleBody": "Set a delay, then confirm. Cancel anytime before it runs.",
+    "activeTitle": "Shutdown scheduled",
+    "activeBody": "Windows will shut down when the timer reaches zero. You can cancel anytime.",
     "delay": "Delay",
-    "cancelSchedule": "Cancel",
+    "cancelSchedule": "Cancel Shutdown",
     "minutes": "Minutes",
     "hours": "Hours",
     "confirmShutdown": "Shut down this PC now?",
@@ -231,7 +238,16 @@
     "psuUnavailable": "Not reported by Windows (desktop PSU name is often unavailable)",
     "unavailableTitle": "Live hardware data needs the desktop app",
     "unavailableBody": "Browser preview (pnpm dev) cannot read CPU, GPU, or power details. Run pnpm tauri:dev or open a CI-built .exe to load real system information.",
-    "loadFailed": "Could not load system information"
+    "loadFailed": "Could not load system information",
+    "loadingStatus": "Collecting",
+    "loadingTitle": "Reading system information",
+    "loadingSource": "Stage",
+    "loadingHint": "Hardware inventory can take a few seconds on some PCs.",
+    "elapsed": "Elapsed",
+    "phaseMetrics": "Sampling live metrics…",
+    "phaseHardware": "Querying hardware inventory…",
+    "phaseGpu": "Reading graphics sensors…",
+    "phaseAssemble": "Building report…"
   },
   "history": {
     "title": "Activity History",
