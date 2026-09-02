@@ -43,7 +43,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDExRDk5QUJDRkU2MkNFMjYKUldRbXptTCt2SnJaRWJQbzVOWjE5UHhXbWFpSmZqN20wdTRrT0c3T21CRUlQWGNHWlBJWTBTcmQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYxODUzNzlGNjdDN0NBQTgKUldTb3lzZG5uemVGWVhVb0Rtd1NySnpQWFR1Y0x2YnhkVGZBdjZGdXNyT3cyZWd5L0hYWTZtNjEK",
       "endpoints": [
         "https://github.com/SSujitX/pc-toolkit-pro/releases/latest/download/latest.json"
       ],

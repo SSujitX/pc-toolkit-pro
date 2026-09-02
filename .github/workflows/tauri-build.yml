@@ -82,13 +82,30 @@ jobs:
       - name: Check VERSION sync
         run: node ./scripts/sync-version.mjs check
 
+      - name: Prepare updater signing key
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "Secret TAURI_SIGNING_PRIVATE_KEY is empty"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
+            throw "Secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty"
+          }
+          $key = $env:TAURI_SIGNING_PRIVATE_KEY.Trim().Replace("`r", "")
+          $path = Join-Path $env:RUNNER_TEMP "pctoolkit.key"
+          [System.IO.File]::WriteAllText($path, $key)
+          "TAURI_SIGNING_PRIVATE_KEY_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "signing_key_chars=$($key.Length) password_chars=$($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD.Length)"
+
       - name: Build Tauri app (NSIS only)
         # Skip MSI/WiX — NSIS .exe is enough for CI artifacts and much faster to package.
-        # createUpdaterArtifacts=true requires the signing key whenever pubkey is set.
+        # Use key PATH (not inline env string) to avoid Windows runner mangling.
         run: pnpm tauri build --bundles nsis
         env:
           CI: true
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: sccache stats
