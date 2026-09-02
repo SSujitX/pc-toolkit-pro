@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Component } from 'vue';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     status: string;
     title: string;
@@ -13,6 +14,8 @@ withDefaults(
     stats?: Array<{ label: string; value: string }>;
     icon?: Component;
     cancelLabel?: string;
+    /** When false, hide the cancel control (read-only long loads). */
+    cancellable?: boolean;
   }>(),
   {
     sourceLabel: undefined,
@@ -23,31 +26,59 @@ withDefaults(
     stats: () => [],
     icon: undefined,
     cancelLabel: 'Cancel',
+    cancellable: true,
   }
 );
 
 const emit = defineEmits<{ cancel: [] }>();
+
+/** Circle radius in the 48×48 viewBox — circumference drives dashoffset. */
+const RING_R = 20;
+const RING_C = 2 * Math.PI * RING_R;
+
+const progressClamped = computed(() =>
+  Math.min(100, Math.max(0, Number(props.progress) || 0))
+);
+
+const progressOffset = computed(() => {
+  const p = progressClamped.value / 100;
+  return RING_C * (1 - Math.max(0.06, p));
+});
+
+const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)));
 </script>
 
 <template>
   <div class="op-stage">
     <div class="op-card">
       <div class="op-head">
-        <div class="ring-wrap">
-          <svg class="ring" viewBox="0 0 48 48" aria-hidden="true">
-            <circle class="ring-track" cx="24" cy="24" r="20" />
+        <div
+          class="ring-wrap"
+          role="progressbar"
+          :aria-valuenow="Math.round(progressClamped)"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="status"
+        >
+          <div class="ring-disc" aria-hidden="true" />
+          <svg class="ring ring-spin" viewBox="0 0 48 48" aria-hidden="true">
+            <circle class="spin-arc" cx="24" cy="24" :r="RING_R" />
+          </svg>
+          <svg class="ring ring-progress" viewBox="0 0 48 48" aria-hidden="true">
+            <circle class="ring-track" cx="24" cy="24" :r="RING_R" />
             <circle
               class="ring-value"
               cx="24"
               cy="24"
-              r="20"
+              :r="RING_R"
               :style="{
-                strokeDasharray: `${Math.max(10, (progress / 100) * 126)} 126`,
+                strokeDasharray: `${RING_C}`,
+                strokeDashoffset: `${progressOffset}`,
               }"
             />
           </svg>
           <div class="ring-icon">
-            <component :is="icon" v-if="icon" :size="20" :stroke-width="2" />
+            <component :is="icon" v-if="icon" :size="18" :stroke-width="2" />
           </div>
         </div>
         <div class="op-copy">
@@ -57,22 +88,17 @@ const emit = defineEmits<{ cancel: [] }>();
       </div>
 
       <div v-if="sourceValue" class="source">
-        <component
-          :is="sourceIcon"
-          v-if="sourceIcon"
-          class="source-icon"
-          :size="16"
-          :stroke-width="1.8"
-        />
+        <span v-if="sourceIcon" class="source-glyph" aria-hidden="true">
+          <component :is="sourceIcon" :size="15" :stroke-width="1.9" />
+        </span>
         <div class="source-copy">
           <span class="source-label">{{ sourceLabel }}</span>
           <code>{{ sourceValue }}</code>
         </div>
-        <span class="source-elapsed" />
       </div>
 
-      <div class="bar">
-        <span :style="{ width: `${Math.min(100, Math.max(6, progress))}%` }" />
+      <div class="bar" aria-hidden="true">
+        <span :style="{ width: `${barWidth}%` }" />
       </div>
 
       <div v-if="stats?.length" class="stats">
@@ -84,7 +110,12 @@ const emit = defineEmits<{ cancel: [] }>();
 
       <p v-if="hint" class="hint">{{ hint }}</p>
 
-      <button type="button" class="cancel" @click="emit('cancel')">
+      <button
+        v-if="cancellable"
+        type="button"
+        class="cancel"
+        @click="emit('cancel')"
+      >
         {{ cancelLabel }}
       </button>
     </div>
@@ -99,6 +130,7 @@ const emit = defineEmits<{ cancel: [] }>();
   height: 100%;
   min-height: 0;
   padding: 16px;
+  animation: op-fade-in 220ms ease-out;
 }
 .op-card {
   width: min(520px, 100%);
@@ -113,36 +145,66 @@ const emit = defineEmits<{ cancel: [] }>();
   align-items: center;
   gap: 14px;
 }
+
+/* Perfect circle — never a rounded square frame */
 .ring-wrap {
   position: relative;
   width: 52px;
   height: 52px;
   flex: none;
+  border-radius: 50%;
+  overflow: visible;
+}
+.ring-disc {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+  animation: ring-breathe 1.8s ease-in-out infinite;
 }
 .ring {
+  position: absolute;
+  inset: 0;
   width: 52px;
   height: 52px;
+  overflow: visible;
+}
+.ring-progress {
   transform: rotate(-90deg);
 }
+.ring-spin {
+  animation: ring-rotate 1.15s linear infinite;
+}
 .ring-track,
-.ring-value {
+.ring-value,
+.spin-arc {
   fill: none;
-  stroke-width: 3.25;
+  stroke-linecap: round;
 }
 .ring-track {
-  stroke: color-mix(in oklab, var(--primary) 18%, var(--muted));
+  stroke: color-mix(in oklab, var(--primary) 16%, var(--muted));
+  stroke-width: 3;
 }
 .ring-value {
   stroke: var(--primary);
-  stroke-linecap: round;
+  stroke-width: 3.25;
+  transition: stroke-dashoffset 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.spin-arc {
+  stroke: color-mix(in oklab, var(--primary) 55%, transparent);
+  stroke-width: 2.5;
+  stroke-dasharray: 28 98;
 }
 .ring-icon {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
+  border-radius: 50%;
   color: var(--primary);
+  pointer-events: none;
 }
+
 .op-copy .status {
   color: var(--primary);
   font-size: 0.75rem;
@@ -155,6 +217,7 @@ const emit = defineEmits<{ cancel: [] }>();
   letter-spacing: -0.02em;
   color: var(--foreground);
 }
+
 .source {
   display: flex;
   align-items: center;
@@ -164,9 +227,15 @@ const emit = defineEmits<{ cancel: [] }>();
   background: var(--surface-soft);
   padding: 12px 14px;
 }
-.source-icon {
+.source-glyph {
+  display: grid;
   flex: none;
-  color: var(--muted-foreground);
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
 }
 .source-copy {
   min-width: 0;
@@ -188,6 +257,7 @@ const emit = defineEmits<{ cancel: [] }>();
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .bar {
   margin-top: 12px;
   height: 4px;
@@ -199,11 +269,17 @@ const emit = defineEmits<{ cancel: [] }>();
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--primary);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--primary) 78%, transparent),
+    var(--primary)
+  );
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 8px;
   margin-top: 14px;
 }
@@ -223,7 +299,9 @@ const emit = defineEmits<{ cancel: [] }>();
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--foreground);
+  font-variant-numeric: tabular-nums;
 }
+
 .hint {
   margin: 16px 0 0;
   text-align: center;
@@ -244,5 +322,39 @@ const emit = defineEmits<{ cancel: [] }>();
 }
 .cancel:hover {
   background: var(--muted);
+}
+
+@keyframes ring-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ring-breathe {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes op-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op-stage,
+  .ring-spin,
+  .ring-disc,
+  .ring-value,
+  .bar span {
+    animation: none;
+    transition: none;
+  }
 }
 </style>
