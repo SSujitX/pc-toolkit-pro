@@ -167,9 +167,30 @@ export class PowerService {
   }
 }
 
+export interface SystemInfoProgress {
+  phase: string;
+  current: number;
+  total: number;
+  message: string;
+}
+
 export class SystemInfoService {
   static load(): Promise<SystemInformation> {
     return invoke('get_system_information');
+  }
+
+  static async loadWithProgress(
+    handler: (progress: SystemInfoProgress) => void
+  ): Promise<SystemInformation> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<SystemInfoProgress>('system-info-progress', (e) =>
+        handler(e.payload)
+      );
+      return await invoke('get_system_information');
+    } finally {
+      unlisten?.();
+    }
   }
 }
 
@@ -219,5 +240,11 @@ export class MemoryCleanerService {
 
   static cancel(): Promise<void> {
     return invoke('cancel_memory_optimize');
+  }
+}
+
+export class SettingsApi {
+  static openAppDataFolder(): Promise<void> {
+    return invoke('open_app_data_folder');
   }
 }
