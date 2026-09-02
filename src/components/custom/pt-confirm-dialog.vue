@@ -83,27 +83,6 @@ function onCancel() {
   gap: 8px;
   padding: 10px 20px 16px;
 }
-.pt-btn {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--foreground);
-  padding: 8px 14px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.pt-btn:hover {
-  background: var(--muted);
-}
-.pt-btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
-}
-.pt-btn-danger {
-  background: var(--destructive);
-  border-color: var(--destructive);
-  color: white;
-}
+/* Use global .pt-btn / .pt-btn-primary from main.css — local :hover was
+   washing out primary text (muted background + light foreground). */
 </style>
