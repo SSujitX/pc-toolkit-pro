@@ -1,16 +1,116 @@
-## Learned User Preferences
+# PC Toolkit Pro — Contribution Guidelines
 
-- Prefer a full rewrite to Rust + Tauri 2 over Go/Wails for PC Toolkit Pro’s long-term desktop product.
-- Match MangoDisk’s UI closely (shell, density, soft look, sidebar, tables, dialogs, light/dark); only branding should be PC Toolkit Pro (name, logo, accent)—do not invent a different layout when unsure.
-- Follow MangoDisk’s tech stack: Tauri 2, Vue 3 + TypeScript, Pinia, Tailwind 4, shadcn-vue, thin Tauri commands, and a Rust core with no Tauri dependency.
-- Prioritize fast load and no UI hangs using MangoDisk-style patterns (deferred window show, no heavy work on startup, background workers, progress events + cancel, busy guards).
-- Keep `master` stable for the shipped Python app; do Tauri rewrite and experiments on a side branch and merge only after solid testing.
-- Prefer avoiding a full Visual Studio install locally; use GitHub Actions for real `.exe` builds and browser/`npm run dev` for UI-only preview when a local C++ toolchain is missing.
+These rules apply to the entire repository. More specific guidance lives in [`src/AGENTS.md`](src/AGENTS.md) and [`src-tauri/AGENTS.md`](src-tauri/AGENTS.md); a child file adds only rules for its own subtree and does not replace this file.
 
-## Learned Workspace Facts
+Thin Cursor rules under `.cursor/rules/` reinforce matching globs only. Prefer these `AGENTS.md` files over third-party-named skills or inspiration clones.
 
-- Production PyQt app historically lived on `master`; the Tauri rewrite on `feat/tauri-rewrite` replaces Python with root `src/` + `src-tauri/` (Vue 3 + Rust core/platform).
-- Active rewrite branch is `feat/tauri-rewrite`; Python sources are removed on this branch after parity implementation.
-- UI/architecture reference is harry0703/MangoDisk (Tauri 2 + Vue + Rust core); use patterns only—do not copy GPL source or mango branding.
-- Project Cursor guidance lives under `.cursor/skills/mangodisk-style-desktop-ui/` and `.cursor/rules/mangodisk-style-ui.mdc` plus `tauri-rust-adapter.mdc`.
-- Windows CI build: `.github/workflows/tauri-build.yml` (MSVC available on `windows-latest`).
+## Product and architecture
+
+PC Toolkit Pro is a **Windows-first** Tauri 2 desktop toolkit for cleanup, memory optimization, monitoring, power control, and system information. The Vue frontend is an adapter for user interaction. Rust owns filesystem access, Win32 capabilities, scan/cleanup orchestration, memory optimization, power actions, history persistence, and typed operational results.
+
+App name is **PC Toolkit Pro** only. Logo source of truth is root `pctoolkitpro.png` (copied/generated into `src/assets/brand/logo.png`, `public/icon.*`, and `src-tauri/icons/*` via `pnpm exec tauri icon pctoolkitpro.png`). Never ship another product’s name, logo, copy, or GPL source/assets.
+
+Active rewrite branch: `feat/tauri-rewrite`. Keep `master` stable for any legacy Python release until merge after solid testing.
+
+Keep these domain boundaries stable:
+
+- `cleaner`: junk/temp scan, preview, execute, cancel, progress;
+- `deep-cleaner`: deeper category cleanup UI over cleaner capabilities (presentation may combine results; Core ownership stays in cleaner/shared safety);
+- `memory`: physical/virtual stats, selectable optimize areas, auto-clean settings, tray-aligned clean;
+- `power`: shutdown / restart / sleep / lock and scheduled shutdown;
+- `monitor`: live titlebar/monitor snapshot (uptime, disk, memory);
+- `system_info`: full hardware/OS report for Information / export;
+- `history`: operation records under app local data;
+- `quick_actions`: launch common Windows tools/settings (platform launch helpers);
+- `window` / tray / updater: shell adapters over Core + plugins — not new product domains.
+
+Do not create broad modules such as `common`, `misc`, `manager`, `optimization`, or a new service that aggregates unrelated domains. Product pages may combine domain results without moving that coordination into a giant Core service.
+
+```
+Vue pages / shell     → presentation only
+lib/services/*        → invoke(), listen(), dialogs, OS/plugin APIs
+Pinia stores          → one domain workflow each
+src-tauri/commands/*  → validate input → call Core → map errors/events
+pctoolkit-core        → scan, safety, orchestration, persistence (no Tauri)
+pctoolkit-platform    → OS facts/capabilities (no product orchestration)
+```
+
+## Implementation principles
+
+1. Prefer the smallest practical design that preserves a clear boundary. Do not add abstractions for hypothetical reuse.
+2. Keep side effects at adapters and domain boundaries. Pure classification, formatting, and calculation must remain deterministic.
+3. Prefer typed status, risk, capability, and reason codes across process and persistence boundaries. Free-form messages are diagnostics, not UI control flow.
+4. Blocking or long work must not run on the UI/async adapter thread. Use `spawn_blocking` / `run_blocking`, emit progress, support cancel, and return typed `operationBusy` instead of deadlocking.
+5. Preserve safety invariants: skip-and-continue on denied paths for default cleaner scans, protected-path awareness, explicit confirmation for destructive actions, honest elevation/skip reporting for privileged memory APIs, and safe fallback when capabilities are unavailable.
+6. Never hide a compatibility or honesty regression with fake success (for example PowerShell “memory clean”), silent privilege elevation, or undocumented fallbacks.
+7. Startup must stay fast: main window starts **hidden** and `show()` only after Vue mounts; no long scans or blocking filesystem work before first paint.
+
+## Naming and text
+
+- Rust files and modules use `snake_case`; frontend, documentation, and resource file names use `kebab-case` unless an external tool requires another format.
+- Project-owned Vue components use the `pt-` prefix so ownership is recognizable as PC Toolkit Pro code.
+- Source comments, logs, diagnostic codes, test names, and assertions must be clear and consistent. All code comments must use idiomatic, professional English. Comments explain reasons, risks, and non-obvious boundaries rather than restating code.
+- User-facing text belongs in locale resources (`src/locales/`). Update every supported locale when contributor-visible behavior changes.
+- Use stable typed enums or codes across process and persistence boundaries. Do not make UI logic infer behavior from free-form messages.
+
+## Desktop product invariants
+
+Soft, dense utility chrome — warm soft background, soft sidebar, restrained borders, ~8–14px radius, light + dark (+ system theme where implemented).
+
+- **Shell:** custom titlebar (uptime / disk / memory circle / window controls) · collapsible sidebar · `PtPageShell` (`document` | `workspace`).
+- **Density:** page title ~22–28px · section ~0.9375rem · row text ~0.8125rem · result rows ~44px · sidebar item ~40px.
+- **Interaction:** buttons change color/border/shadow only — never translate/scale. Confirm destructive actions. Semantic CSS tokens only (no random hex in pages).
+- **When unsure:** keep the existing soft shell patterns; do not invent a different product layout.
+
+### Cleaner / Memory
+
+- Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk).
+- Memory Cleaner: selectable areas, live physical/virtual stats, auto-clean from **5 min** upward + free-RAM threshold; tray uses the same settings. Real Win32 APIs; honest skip/log when not elevated; **no PowerShell fake**; settings in `%LOCALAPPDATA%\PC Toolkit Pro\`.
+
+### Tray / Information / Updates
+
+- Tray + hide-to-tray until Exit (Python-era behavior). Close / Alt+F4 hides; Exit quits.
+- No flashing console when collecting system info.
+- Information/export: full hardware report (CPU, disks, RAM, GPU, monitors, motherboard, OS), including PSU name when available, for copy/share.
+- App updates use `@tauri-apps/plugin-updater` with signed release artifacts and GitHub `latest.json` — not “open releases URL” as the primary Check for Updates path.
+
+## Repository hygiene
+
+- Existing and untracked changes belong to the user unless proven otherwise. Do not overwrite, delete, reformat, or include unrelated changes in a commit.
+- Do not edit generated or third-party source to implement application-wide behavior.
+- Import project-owned business modules from concrete files. Do not add business barrel files unless a tool genuinely requires one.
+- Do not commit credentials, private signing keys (`.tauri/*.key`), personal file contents, raw private paths in Markdown, build outputs, or local dependency directories.
+- Logs and diagnostics must not expose raw filesystem paths, file contents, installation identifiers, or unrelated user-specific metadata. Prefer operation IDs, counts, timings, typed reason codes, and error digests.
+- Do not push commits or open PRs unless the user explicitly asks. A request to commit does not authorize push.
+- Optional reference trees under `test_inspiration/` (gitignored) are for **behavior/UX patterns only**. Do **not** copy GPL source, names, logos, or assets into the product.
+
+## Workflow
+
+1. Read the nearest `AGENTS.md` before changing code.
+2. Inspect the worktree and establish a behavior baseline proportional to risk.
+3. Write a concise implementation plan for multi-step work and keep it updated when scope changes.
+4. Keep structural moves separate from behavior changes whenever review would otherwise become ambiguous.
+5. Validate on Windows when the change touches Win32, NSIS, tray, elevation, or installer behavior. If the environment lacks MSVC/`link.exe`, use GitHub Actions for real `.exe` builds and document what was not validated locally.
+6. Review the final diff for correctness, safety, honesty of privileged paths, naming, locales, and stale documentation before committing.
+
+## Required validation
+
+Run the smallest applicable checks during development and the complete checks before submitting a change or preparing a release:
+
+```sh
+pnpm exec vue-tsc --noEmit
+pnpm build
+cargo test --manifest-path src-tauri/Cargo.toml -p pctoolkit-core
+```
+
+UI-only preview: `pnpm dev`. Full desktop: `pnpm tauri:dev` / `pnpm tauri:build` when the local toolchain can link.
+
+Prefer GitHub Actions for real Windows installers when local MSVC is missing (`.github/workflows/tauri-build.yml`, `.github/workflows/release-windows.yml`).
+
+Tests are required for high-risk logic, persistence, safety boundaries, memory optimize outcomes, and regressions. Ordinary presentation-only changes may rely on type, build, and interaction checks when an automated test would not add meaningful confidence.
+
+## Public guidance
+
+- Keep contributor guidance concise and place domain-specific instructions near the code they govern. Child `AGENTS.md` files own subtree detail.
+- Do not commit private research, raw machine reports, credentials, or private release tooling. Durable architecture decisions may be documented publicly when they help contributors.
+- Update public guidance in the same change when contributor-visible behavior or validation changes.
