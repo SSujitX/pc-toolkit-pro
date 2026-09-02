@@ -33,6 +33,10 @@ pub struct SystemInformation {
     pub username: String,
     pub monitors: Vec<String>,
     pub storage_devices: Vec<String>,
+    pub power_plan: String,
+    pub power_supplies: Vec<String>,
+    pub batteries: Vec<String>,
+    pub ac_line_status: String,
     pub copy_text: String,
 }
 
@@ -50,10 +54,14 @@ pub fn load_system_information() -> PlatformResult<SystemInformation> {
     };
 
     let gpu = sample_nvidia().ok();
-    let motherboard =
-        query_ps("(Get-CimInstance Win32_BaseBoard).Product").unwrap_or_else(|| "Unknown".into());
-    let bios = query_ps("(Get-CimInstance Win32_BIOS).SMBIOSBIOSVersion")
-        .unwrap_or_else(|| "Unknown".into());
+    let motherboard = query_ps(
+        r#"(Get-CimInstance Win32_BaseBoard | ForEach-Object { ("$($_.Manufacturer) $($_.Product)").Trim() } | Select-Object -First 1)"#,
+    )
+    .unwrap_or_else(|| "Unknown".into());
+    let bios = query_ps(
+        r#"(Get-CimInstance Win32_BIOS | ForEach-Object { ("$($_.Manufacturer) $($_.SMBIOSBIOSVersion)").Trim() } | Select-Object -First 1)"#,
+    )
+    .unwrap_or_else(|| "Unknown".into());
     let os_edition = query_ps(
         "(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion').ProductName",
     )
@@ -76,6 +84,67 @@ pub fn load_system_information() -> PlatformResult<SystemInformation> {
     let storage_devices = query_ps_list(
         "Get-CimInstance Win32_DiskDrive | ForEach-Object { \"$($_.Model) ($([math]::Round($_.Size/1GB,1)) GB)\" }",
     );
+
+    let power_plan = query_ps(
+        r#"try { (Get-CimInstance -Namespace root\cimv2\power -ClassName Win32_PowerPlan -Filter "IsActive='true'").ElementName } catch { $null }"#,
+    )
+    .or_else(|| {
+        query_ps(
+            r#"$m = powercfg /getactivescheme; if ($m -match '\((.+)\)') { $Matches[1] }"#,
+        )
+    })
+    .unwrap_or_else(|| "Unknown".into());
+
+    let power_supplies = query_ps_list(
+        r#"Get-CimInstance Win32_PowerSupply -ErrorAction SilentlyContinue | ForEach-Object {
+            $name = if ($_.Name) { $_.Name } else { $_.DeviceID }
+            $status = if ($_.Status) { $_.Status } else { 'Unknown' }
+            $watts = if ($_.TotalPower -and $_.TotalPower -gt 0) {
+                '{0} W' -f [math]::Round($_.TotalPower / 1000.0, 0)
+            } else { 'wattage not reported' }
+            "$name · $status · $watts"
+        }"#,
+    );
+
+    let batteries = query_ps_list(
+        r#"Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | ForEach-Object {
+            $name = if ($_.Name) { $_.Name } else { 'Battery' }
+            $pct = if ($null -ne $_.EstimatedChargeRemaining) { "$($_.EstimatedChargeRemaining)%" } else { 'n/a' }
+            $status = switch ($_.BatteryStatus) {
+                1 { 'Discharging' }
+                2 { 'AC connected' }
+                3 { 'Fully charged' }
+                4 { 'Low' }
+                5 { 'Critical' }
+                6 { 'Charging' }
+                7 { 'Charging / high' }
+                8 { 'Charging / low' }
+                9 { 'Charging / critical' }
+                10 { 'Undefined' }
+                11 { 'Partially charged' }
+                default { "Status $($_.BatteryStatus)" }
+            }
+            $parts = @("$name · $pct · $status")
+            if ($_.DesignCapacity) { $parts += "$($_.DesignCapacity) mWh design" }
+            if ($_.FullChargeCapacity) { $parts += "$($_.FullChargeCapacity) mWh full" }
+            $parts -join ' · '
+        }"#,
+    );
+
+    let ac_line_status = query_ps(
+        r#"$b = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $b) { 'Online (no battery device)' }
+elseif ($b.BatteryStatus -eq 1) { 'Offline (on battery)' }
+elseif ($b.BatteryStatus -eq 2 -or $b.BatteryStatus -eq 3 -or $b.BatteryStatus -ge 6) { 'Online (AC power)' }
+else { 'Unknown' }"#,
+    )
+    .unwrap_or_else(|| {
+        if batteries.is_empty() {
+            "Online (desktop / no battery reported)".into()
+        } else {
+            "Unknown".into()
+        }
+    });
 
     let mut info = SystemInformation {
         uptime: uptime.clone(),
@@ -106,7 +175,22 @@ pub fn load_system_information() -> PlatformResult<SystemInformation> {
         username: username.clone(),
         monitors: monitors.clone(),
         storage_devices: storage_devices.clone(),
+        power_plan: power_plan.clone(),
+        power_supplies: power_supplies.clone(),
+        batteries: batteries.clone(),
+        ac_line_status: ac_line_status.clone(),
         copy_text: String::new(),
+    };
+
+    let psu = if power_supplies.is_empty() {
+        "Not reported by Windows (common on desktop PCs)".to_string()
+    } else {
+        power_supplies.join("; ")
+    };
+    let batt = if batteries.is_empty() {
+        "None reported".to_string()
+    } else {
+        batteries.join("; ")
     };
 
     info.copy_text = format!(
@@ -119,6 +203,8 @@ pub fn load_system_information() -> PlatformResult<SystemInformation> {
          Disk C: {disk_used:.1} / {disk_total:.1} GB ({disk_pct:.1}%)\n\
          GPU: {gpu}\n\
          Motherboard: {motherboard}\nBIOS: {bios}\n\
+         Power plan: {power_plan}\nAC: {ac_line_status}\n\
+         Power supply: {psu}\nBattery: {batt}\n\
          Monitors: {monitors}\n\
          Storage: {storage}\n",
         cpu = sample.cpu,
