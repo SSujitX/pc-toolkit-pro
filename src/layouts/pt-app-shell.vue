@@ -8,8 +8,11 @@ import PtWindowTitlebar from './components/pt-window-titlebar.vue';
 import MonitorPage from '@/pages/monitor/index.vue';
 
 const CleanerPage = defineAsyncComponent(() => import('@/pages/cleaner/index.vue'));
+const DeepCleanerPage = defineAsyncComponent(() => import('@/pages/deep-cleaner/index.vue'));
+const MemoryCleanerPage = defineAsyncComponent(() => import('@/pages/memory-cleaner/index.vue'));
 const PowerPage = defineAsyncComponent(() => import('@/pages/power/index.vue'));
 const InformationPage = defineAsyncComponent(() => import('@/pages/information/index.vue'));
+const HistoryPage = defineAsyncComponent(() => import('@/pages/history/index.vue'));
 const SettingsPage = defineAsyncComponent(() => import('@/pages/settings/index.vue'));
 
 const app = useAppStore();
@@ -18,8 +21,11 @@ const monitor = useMonitorStore();
 const pageMap: Partial<Record<PageId, unknown>> = {
   [PAGE_IDS.monitor]: MonitorPage,
   [PAGE_IDS.cleaner]: CleanerPage,
+  [PAGE_IDS.deepCleaner]: DeepCleanerPage,
+  [PAGE_IDS.memoryCleaner]: MemoryCleanerPage,
   [PAGE_IDS.power]: PowerPage,
   [PAGE_IDS.information]: InformationPage,
+  [PAGE_IDS.history]: HistoryPage,
   [PAGE_IDS.settings]: SettingsPage,
 };
 
@@ -30,8 +36,11 @@ onMounted(() => {
   // Idle preload secondary pages
   window.setTimeout(() => {
     void import('@/pages/cleaner/index.vue');
+    void import('@/pages/deep-cleaner/index.vue');
+    void import('@/pages/memory-cleaner/index.vue');
     void import('@/pages/power/index.vue');
     void import('@/pages/information/index.vue');
+    void import('@/pages/history/index.vue');
     void import('@/pages/settings/index.vue');
   }, 1500);
 });
@@ -52,13 +61,17 @@ watch(
 
 <template>
   <div class="shell">
-    <PtSidebar
-      :current-page="app.currentPage"
-      :busy-pages="app.busyPages"
-      :expanded="app.sidebarExpanded"
-      @navigate="app.navigate"
-      @toggle="app.toggleSidebar"
-    />
+    <div class="sidebar-slot">
+      <PtSidebar
+        :current-page="app.currentPage"
+        :busy-pages="app.busyPages"
+        :pinned="app.sidebarPinned"
+        :peeking="app.sidebarPeeking"
+        @navigate="app.navigate"
+        @toggle-pin="app.toggleSidebarPin"
+        @peek="app.setSidebarPeek"
+      />
+    </div>
     <main class="workspace">
       <PtWindowTitlebar />
       <component :is="current" />
@@ -74,10 +87,21 @@ watch(
   background: var(--background);
   color: var(--foreground);
 }
+.sidebar-slot {
+  position: relative;
+  z-index: 30;
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  flex: none;
+  transition:
+    width var(--sidebar-transition-duration) var(--sidebar-transition-easing),
+    min-width var(--sidebar-transition-duration) var(--sidebar-transition-easing);
+}
 .workspace {
   position: relative;
   flex: 1;
   min-width: 0;
   background: var(--workspace);
+  transition: flex-basis var(--sidebar-transition-duration) var(--sidebar-transition-easing);
 }
 </style>
