@@ -1,14 +1,33 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { Paintbrush } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
+import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue';
 import { formatBytes } from '@/lib/utils/format';
 import { useCleanerStore } from '@/stores/cleaner-store';
 
 const { t } = useI18n();
 const store = useCleanerStore();
 const confirmOpen = ref(false);
+
+const progressPct = computed(() => {
+  if (!store.progress?.total) return store.loading ? 12 : 0;
+  return Math.round((store.progress.current / store.progress.total) * 100);
+});
+
+const stats = computed(() => [
+  { label: 'Items', value: String(store.items.filter((i) => i.selected).length) },
+  {
+    label: 'Estimated',
+    value: formatBytes(store.items.filter((i) => i.selected).reduce((n, i) => n + i.estimatedBytes, 0)),
+  },
+  {
+    label: 'Phase',
+    value: store.progress ? `${store.progress.current}/${store.progress.total}` : '—',
+  },
+]);
 
 function requestClean() {
   confirmOpen.value = true;
@@ -18,12 +37,12 @@ function requestClean() {
 <template>
   <PtPageShell :title="t('cleaner.title')" :subtitle="t('cleaner.subtitle')" content-mode="workspace">
     <template #actions>
-      <button type="button" class="btn" :disabled="store.loading" @click="store.scan()">
+      <button type="button" class="pt-btn" :disabled="store.loading" @click="store.scan()">
         {{ t('common.scan') }}
       </button>
       <button
         type="button"
-        class="btn primary"
+        class="pt-btn pt-btn-primary"
         :disabled="store.loading || !store.items.some((i) => i.selected)"
         @click="requestClean"
       >
@@ -31,37 +50,54 @@ function requestClean() {
       </button>
     </template>
 
-    <p class="hint">{{ t('cleaner.scanHint') }}</p>
-    <p v-if="!store.isAdmin" class="warn">{{ t('common.adminRequired') }}</p>
+    <PtOperationWorkspace
+      v-if="store.loading"
+      :status="store.progress ? 'Cleaning' : 'Analyzing'"
+      :title="store.progress?.message || 'Scanning cleanable content...'"
+      source-label="Current source"
+      source-value="User Temp · System Temp · Prefetch · Recycle Bin"
+      :progress="progressPct"
+      :stats="stats"
+      :hint="t('cleaner.scanHint')"
+      :icon="Paintbrush"
+      :cancel-label="t('common.cancel')"
+      @cancel="store.cancel()"
+    />
 
-    <div v-if="store.progress" class="progress">
-      {{ t('common.busy') }} {{ store.progress.current }}/{{ store.progress.total }} —
-      {{ store.progress.message }}
-      <button type="button" class="btn" @click="store.cancel()">{{ t('common.cancel') }}</button>
-    </div>
+    <template v-else>
+      <p v-if="!store.isAdmin" class="warn">{{ t('common.adminRequired') }}</p>
 
-    <div v-if="!store.items.length" class="empty">{{ t('cleaner.empty') }}</div>
-    <div v-else class="list">
-      <label v-for="item in store.items" :key="item.id" class="row">
-        <input type="checkbox" :checked="item.selected" @change="store.toggle(item.id)" />
-        <div class="row-body">
-          <strong>{{ t(item.titleKey) }}</strong>
-          <span>{{ formatBytes(item.estimatedBytes) }}</span>
-        </div>
-      </label>
-    </div>
+      <div v-if="!store.items.length" class="empty-card">
+        <Paintbrush :size="28" :stroke-width="1.8" />
+        <h3>{{ t('cleaner.empty') }}</h3>
+        <p>{{ t('cleaner.scanHint') }}</p>
+        <button type="button" class="pt-btn pt-btn-primary" @click="store.scan()">
+          {{ t('common.scan') }}
+        </button>
+      </div>
 
-    <div v-if="store.result" class="result">
-      {{
-        t('cleaner.result', {
-          bytes: formatBytes(store.result.freedBytes),
-          files: store.result.filesRemoved,
-        })
-      }}
-      <ul>
-        <li v-for="(line, idx) in store.log" :key="idx">{{ line }}</li>
-      </ul>
-    </div>
+      <div v-else class="list-card">
+        <label v-for="item in store.items" :key="item.id" class="row">
+          <input type="checkbox" :checked="item.selected" @change="store.toggle(item.id)" />
+          <div class="row-body">
+            <strong>{{ t(item.titleKey) }}</strong>
+            <span>{{ formatBytes(item.estimatedBytes) }}</span>
+          </div>
+        </label>
+      </div>
+
+      <div v-if="store.result" class="result-card">
+        {{
+          t('cleaner.result', {
+            bytes: formatBytes(store.result.freedBytes),
+            files: store.result.filesRemoved,
+          })
+        }}
+        <ul>
+          <li v-for="(line, idx) in store.log" :key="idx">{{ line }}</li>
+        </ul>
+      </div>
+    </template>
 
     <PtConfirmDialog
       v-model:open="confirmOpen"
@@ -74,20 +110,42 @@ function requestClean() {
 </template>
 
 <style scoped>
-.hint,
-.warn,
-.empty,
-.result {
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
-}
 .warn {
   color: var(--warning);
+  font-size: 0.8125rem;
 }
-.list {
+.empty-card,
+.list-card,
+.result-card {
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.empty-card {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 320px;
+  padding: 28px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.empty-card h3 {
+  margin: 8px 0 0;
+  color: var(--foreground);
+  font-size: 1.125rem;
+}
+.empty-card p {
+  margin: 0 0 8px;
+  max-width: 360px;
+  font-size: 0.8125rem;
+}
+.list-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 8px;
   overflow: auto;
   min-height: 0;
   flex: 1;
@@ -97,47 +155,27 @@ function requestClean() {
   align-items: center;
   gap: 12px;
   min-height: var(--layout-result-row-height);
-  padding: 0 10px;
-  border-radius: 8px;
+  padding: 0 12px;
+  border-radius: 12px;
   cursor: pointer;
 }
 .row:hover {
-  background: var(--muted);
+  background: var(--surface-soft);
 }
 .row-body {
   display: flex;
   flex: 1;
   justify-content: space-between;
   gap: 12px;
+  font-size: 0.875rem;
+}
+.result-card {
+  padding: 14px 16px;
   font-size: 0.8125rem;
+  color: var(--muted-foreground);
 }
-.progress {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  font-size: 0.75rem;
-}
-.btn {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--foreground);
-  padding: 8px 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+.result-card ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
 }
 </style>
