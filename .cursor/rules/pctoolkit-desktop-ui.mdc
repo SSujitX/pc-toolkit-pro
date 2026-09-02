@@ -1,0 +1,21 @@
+---
+description: PC Toolkit Pro soft desktop UI — follow AGENTS.md
+globs: "src/**/*.{vue,css,ts,tsx}"
+alwaysApply: false
+---
+
+# Desktop UI
+
+Follow root [`AGENTS.md`](../../AGENTS.md) and frontend [`src/AGENTS.md`](../../src/AGENTS.md).
+
+## Hard rules
+
+- Branding: **PC Toolkit Pro** only (`pt-*` components, own logo/accent).
+- Vue is presentation; side effects in `lib/services/`; workflow in Pinia stores.
+- Semantic CSS tokens only. No random hex in pages.
+- Shell: sidebar + page shell + (toolbar → results → action bar).
+- Buttons: color/border/shadow only — never translate/scale.
+- No raw SVG in templates — icon components only.
+- Locales for all user-facing text.
+- When layout choices conflict, keep the existing soft shell — do not invent a new product layout.
+- Fast/no-hang: hidden window until mount; no startup scans; lazy secondary pages; long work off UI thread with progress + cancel.
