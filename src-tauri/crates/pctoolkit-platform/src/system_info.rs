@@ -5,6 +5,16 @@ use crate::gpu::sample_nvidia;
 use crate::monitor::sample_monitor;
 use crate::PlatformResult;
 
+/// Typed collection stages — UI maps `phase` to locale strings.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfoProgress {
+    pub phase: String,
+    pub current: u64,
+    pub total: u64,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemInformation {
@@ -107,10 +117,45 @@ struct HwFacts {
 }
 
 pub fn load_system_information() -> PlatformResult<SystemInformation> {
+    load_system_information_with_progress(|_| {})
+}
+
+pub fn load_system_information_with_progress(
+    mut on_progress: impl FnMut(SystemInfoProgress),
+) -> PlatformResult<SystemInformation> {
+    const TOTAL: u64 = 4;
+
+    on_progress(SystemInfoProgress {
+        phase: "metrics".into(),
+        current: 1,
+        total: TOTAL,
+        message: "sampling live metrics".into(),
+    });
     let sample = sample_monitor()?;
     let uptime = format_uptime(sample.uptime_seconds);
+
+    on_progress(SystemInfoProgress {
+        phase: "hardware".into(),
+        current: 2,
+        total: TOTAL,
+        message: "querying hardware inventory".into(),
+    });
     let facts = query_hw_facts().unwrap_or_default();
+
+    on_progress(SystemInfoProgress {
+        phase: "gpu".into(),
+        current: 3,
+        total: TOTAL,
+        message: "reading graphics sensors".into(),
+    });
     let nvidia = sample_nvidia().ok();
+
+    on_progress(SystemInfoProgress {
+        phase: "assemble".into(),
+        current: 4,
+        total: TOTAL,
+        message: "building report".into(),
+    });
 
     let cpu_name = non_empty(&facts.cpu_name).unwrap_or_else(|| "Unknown CPU".into());
     let cores = if facts.cpu_cores > 0 {
