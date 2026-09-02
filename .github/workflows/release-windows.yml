@@ -1,0 +1,135 @@
+name: Release Windows
+
+# Tag a release from VERSION:
+#   1. echo 3.0.1 > VERSION && ./scripts/sync-version.sh
+#   2. git commit -am "chore: bump version to 3.0.1"
+#   3. git tag v3.0.1 && git push origin v3.0.1
+#
+# Or run manually from Actions → Release Windows → Run workflow.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create/use (e.g. v3.0.1). Leave empty to use VERSION file.'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+  CARGO_PROFILE_RELEASE_OPT_LEVEL: "3"
+  CARGO_PROFILE_RELEASE_STRIP: "true"
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  release:
+    name: Build + publish EXE
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Read VERSION
+        id: ver
+        shell: bash
+        run: |
+          VERSION="$(node ./scripts/sync-version.mjs print)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+            EXPECTED="v${VERSION}"
+            if [[ "$TAG" != "$EXPECTED" ]]; then
+              echo "Tag $TAG does not match VERSION file ($EXPECTED)" >&2
+              exit 1
+            fi
+          fi
+          echo "Using product version $VERSION"
+
+      - name: Check version sync
+        run: node ./scripts/sync-version.mjs check
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: windows-tauri-release-v2
+          cache-workspace-crates: "true"
+          cache-on-failure: "true"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri app (NSIS)
+        run: pnpm tauri build --bundles nsis
+        env:
+          CI: true
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+      - name: Collect artifacts
+        id: artifacts
+        shell: pwsh
+        run: |
+          $nsis = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          $portable = "src-tauri/target/release/pc-toolkit-pro.exe"
+          if (-not $nsis) { throw "NSIS installer not found" }
+          if (-not (Test-Path $portable)) { throw "Portable exe not found" }
+          New-Item -ItemType Directory -Force -Path release-out | Out-Null
+          Copy-Item $nsis.FullName "release-out/PC-Toolkit-Pro-${{ steps.ver.outputs.version }}-setup.exe"
+          Copy-Item $portable "release-out/PC-Toolkit-Pro-${{ steps.ver.outputs.version }}.exe"
+          Get-ChildItem release-out | Format-Table Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pc-toolkit-pro-${{ steps.ver.outputs.version }}-windows
+          path: release-out/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.ver.outputs.version) }}
+          name: PC Toolkit Pro v${{ steps.ver.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          generate_release_notes: true
+          files: release-out/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

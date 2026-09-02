@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "version:sync": "node ./scripts/sync-version.mjs sync",
+    "version:check": "node ./scripts/sync-version.mjs check"
   },
   "dependencies": {
     "@lucide/vue": "^1.39.0",

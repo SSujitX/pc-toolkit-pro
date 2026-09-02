@@ -36,10 +36,24 @@ Workflow: [`.github/workflows/tauri-build.yml`](.github/workflows/tauri-build.ym
 
 1. Push to `feat/tauri-rewrite` (or run **Actions → Build Windows EXE → Run workflow**)
 2. Open the finished run → **Artifacts**
-3. Download `pc-toolkit-pro-windows-<sha>` — contains:
-   - NSIS installer (`.exe`)
-   - MSI installer (`.msi`)
-   - Portable `pc-toolkit-pro.exe`
+3. Download `pc-toolkit-pro-windows-<sha>` — contains the NSIS installer and portable EXE
+
+### Version + release
+
+Single source of truth: root [`VERSION`](VERSION) (`X.Y.Z`).
+
+```bash
+# bump then sync into package.json / tauri.conf / Cargo.toml / APP_VERSION
+echo 3.0.1 > VERSION
+pnpm version:sync
+pnpm version:check
+
+git commit -am "chore: bump version to 3.0.1"
+git tag v3.0.1
+git push origin v3.0.1
+```
+
+Tag `vX.Y.Z` (must match `VERSION`) triggers [`.github/workflows/release-windows.yml`](.github/workflows/release-windows.yml), which builds the Windows EXE and publishes a GitHub Release.
 
 ## Features
 
