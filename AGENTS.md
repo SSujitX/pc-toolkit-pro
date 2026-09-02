@@ -114,3 +114,16 @@ Tests are required for high-risk logic, persistence, safety boundaries, memory o
 - Keep contributor guidance concise and place domain-specific instructions near the code they govern. Child `AGENTS.md` files own subtree detail.
 - Do not commit private research, raw machine reports, credentials, or private release tooling. Durable architecture decisions may be documented publicly when they help contributors.
 - Update public guidance in the same change when contributor-visible behavior or validation changes.
+
+## Learned User Preferences
+
+- When the `github-accurate-commits` skill is attached or requested, prefer one short conventional commit per file (a source file may share a commit with its matching test for the same change).
+- Do not add `Co-authored-by` Cursor/Codex trailers to commits; strip them if a hook injects them when the user objects.
+- Keep the product MIT-licensed; do not switch to GPL/GNU to match inspiration clones unless the user explicitly relicenses.
+- Match inspiration soft-density UI and professionalism, but keep PC Toolkit Pro branding and aim to exceed the reference apps rather than pixel-clone them.
+
+## Learned Workspace Facts
+
+- The project license is MIT, not GPL (unlike MangoDisk / some inspiration trees under `test_inspiration/`).
+- With `createUpdaterArtifacts` enabled, CI must provide `TAURI_SIGNING_PRIVATE_KEY` (and password if configured) to both `release-windows.yml` and `tauri-build.yml`, or the build fails after packaging despite a successful EXE/NSIS step.
+- Dual macOS support is feasible for shared shell/updater patterns, but Memory Cleaner Win32 optimize areas stay Windows-only; do not fake Mac feature parity for those APIs.
