@@ -66,7 +66,7 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 - Capability scopes stay minimal (`capabilities/default.json`). Tray/menu needs `core:tray:default` + `core:menu:default` + `core:image:default`; updater needs `updater:default` only when wired end-to-end. Do not assume `opener:default` includes `allow-open-path`.
 - App startup must not perform long scans or blocking filesystem work before the first window is shown. Tray icon bootstrap is allowed at setup (cheap); full menus attach from Vue after mount.
 - Window close on `main` hides to tray; Exit from tray quits. Preserve single-instance focus behavior.
-- Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets (prefer key **file path** in CI) and publishes `latest.json`. Never commit private keys under `.tauri/`.
+- Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets and publishes `latest.json`. Write the secret to a temp file, then set `TAURI_SIGNING_PRIVATE_KEY` from that file in the build step (avoid `Out-File` UTF-8 BOM into `GITHUB_ENV`). Never commit private keys under `.tauri/`.
 - `tauri` Cargo features for tray icons include `tray-icon`, `image-png`, and `image-ico` when embedding/loading tray images.
 
 ## Blocking work and cancel

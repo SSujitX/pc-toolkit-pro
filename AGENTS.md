@@ -131,4 +131,5 @@ Tests are required for high-risk logic, persistence, safety boundaries, memory o
 
 - The project license is MIT, not GPL (unlike MangoDisk / some inspiration trees under `test_inspiration/`).
 - With `createUpdaterArtifacts` enabled, CI must provide `TAURI_SIGNING_PRIVATE_KEY` (and password if configured) to both `release-windows.yml` and `tauri-build.yml`, or the build fails after packaging despite a successful EXE/NSIS step.
+- On Windows runners, write the key to a temp file and set `TAURI_SIGNING_PRIVATE_KEY` from that file in the **build** step. Do not use PowerShell `Out-File -Encoding utf8` for `GITHUB_ENV` (UTF-8 BOM breaks the variable name); use `Add-Content -Encoding utf8NoBOM` or append without a BOM.
 - Dual macOS support is feasible for shared shell/updater patterns, but Memory Cleaner Win32 optimize areas stay Windows-only; do not fake Mac feature parity for those APIs.
