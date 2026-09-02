@@ -15,6 +15,7 @@ import { PAGE_IDS } from '@/lib/models/application-shell';
 import { isCancelledError } from '@/lib/utils/errors';
 import { useAppStore } from './app-store';
 import { useHistoryStore } from './history-store';
+import { useMonitorStore } from './monitor-store';
 
 const LOW_MEMORY_COOLDOWN_MS = 5 * 60 * 1000;
 const AUTO_TICK_MS = 30_000;
@@ -184,6 +185,8 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
         }
         void useHistoryStore().load({ reportError: false });
         void this.refreshStats();
+        // Titlebar / tray gauge share monitor snapshot — refresh immediately like WMC.
+        void useMonitorStore().refreshQuiet();
       } catch (error) {
         if (!isCancelledError(error)) app.reportError(error);
       } finally {
