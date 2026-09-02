@@ -5,5 +5,6 @@ pub mod memory;
 pub mod monitor;
 pub mod power;
 pub mod quick_actions;
+pub mod settings;
 pub mod system_info;
 pub mod window;
