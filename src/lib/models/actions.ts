@@ -42,3 +42,17 @@ export type PowerAction =
   | 'signOut';
 
 export type CleanerCategory = 'tempFiles' | 'recycleBin' | 'diskCleanup' | 'freeMemory';
+
+/** One-click Cleaner presets (Python-era actions, professional UX). */
+export type CleanerPreset =
+  | 'tempPrefetchRecycle'
+  | 'diskCleanup'
+  | 'recycleOnly'
+  | 'freeMemory';
+
+export const CLEANER_PRESET_CATEGORIES: Record<CleanerPreset, CleanerCategory[]> = {
+  tempPrefetchRecycle: ['tempFiles', 'recycleBin'],
+  diskCleanup: ['diskCleanup'],
+  recycleOnly: ['recycleBin'],
+  freeMemory: ['freeMemory'],
+};
