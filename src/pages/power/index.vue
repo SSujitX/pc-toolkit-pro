@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { Moon, Power, RotateCcw, Lock, LogOut, Bed } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
 import type { PowerAction } from '@/lib/models/actions';
@@ -13,13 +14,13 @@ const unit = ref<'minutes' | 'hours'>('minutes');
 const confirmOpen = ref(false);
 const pendingAction = ref<PowerAction | 'schedule' | null>(null);
 
-const actions: { id: PowerAction; labelKey: string; needsConfirm: boolean }[] = [
-  { id: 'shutdown', labelKey: 'power.shutdown', needsConfirm: true },
-  { id: 'restart', labelKey: 'power.restart', needsConfirm: true },
-  { id: 'sleep', labelKey: 'power.sleep', needsConfirm: false },
-  { id: 'hibernate', labelKey: 'power.hibernate', needsConfirm: false },
-  { id: 'lock', labelKey: 'power.lock', needsConfirm: false },
-  { id: 'signOut', labelKey: 'power.signOut', needsConfirm: true },
+const actions: { id: PowerAction; labelKey: string; needsConfirm: boolean; icon: unknown }[] = [
+  { id: 'shutdown', labelKey: 'power.shutdown', needsConfirm: true, icon: Power },
+  { id: 'restart', labelKey: 'power.restart', needsConfirm: true, icon: RotateCcw },
+  { id: 'sleep', labelKey: 'power.sleep', needsConfirm: false, icon: Moon },
+  { id: 'hibernate', labelKey: 'power.hibernate', needsConfirm: false, icon: Bed },
+  { id: 'lock', labelKey: 'power.lock', needsConfirm: false, icon: Lock },
+  { id: 'signOut', labelKey: 'power.signOut', needsConfirm: true, icon: LogOut },
 ];
 
 const confirmMessage = computed(() => {
@@ -77,14 +78,15 @@ function formatCountdown(total: number) {
         :disabled="store.busy"
         @click="clickAction(action.id, action.needsConfirm)"
       >
+        <component :is="action.icon" :size="20" :stroke-width="1.9" />
         {{ t(action.labelKey) }}
       </button>
     </div>
 
-    <div class="schedule">
+    <div class="schedule-card">
       <div v-if="store.deadline" class="countdown">
         {{ formatCountdown(store.countdownSeconds) }}
-        <button type="button" class="btn" @click="store.cancelSchedule()">
+        <button type="button" class="pt-btn" @click="store.cancelSchedule()">
           {{ t('power.cancelSchedule') }}
         </button>
       </div>
@@ -94,7 +96,7 @@ function formatCountdown(total: number) {
           <option value="minutes">{{ t('power.minutes') }}</option>
           <option value="hours">{{ t('power.hours') }}</option>
         </select>
-        <button type="button" class="btn primary" @click="clickSchedule">
+        <button type="button" class="pt-btn pt-btn-primary" @click="clickSchedule">
           {{ t('power.schedule') }}
         </button>
       </div>
@@ -114,33 +116,36 @@ function formatCountdown(total: number) {
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
-.card-btn,
-.btn {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 16px;
   background: var(--card);
   color: var(--foreground);
-  padding: 14px 12px;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 18px 12px;
+  font-size: 0.875rem;
+  font-weight: 650;
   cursor: pointer;
+  box-shadow: var(--shadow-card);
 }
-.card-btn:hover,
-.btn:hover {
-  background: var(--muted);
+.card-btn:hover {
+  background: var(--surface-soft);
 }
-.btn.primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
-}
-.schedule {
-  margin-top: 8px;
+.schedule-card {
+  margin-top: 4px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .schedule-row {
   display: flex;
@@ -150,16 +155,17 @@ function formatCountdown(total: number) {
 .schedule-row input,
 .schedule-row select {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
+  border-radius: 12px;
+  background: var(--surface-soft);
   color: var(--foreground);
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 .countdown {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 1.25rem;
-  font-weight: 650;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 </style>
