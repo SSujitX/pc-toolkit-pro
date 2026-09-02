@@ -3,6 +3,7 @@ import { PowerService } from '@/lib/services/api-services';
 import type { PowerAction } from '@/lib/models/actions';
 import { PAGE_IDS } from '@/lib/models/application-shell';
 import { useAppStore } from './app-store';
+import { useHistoryStore } from './history-store';
 
 export const usePowerStore = defineStore('power', {
   state: () => ({
@@ -18,6 +19,7 @@ export const usePowerStore = defineStore('power', {
       this.busy = true;
       try {
         await PowerService.execute(action);
+        void useHistoryStore().load({ reportError: false });
       } catch (error) {
         app.reportError(error);
       } finally {
@@ -32,6 +34,7 @@ export const usePowerStore = defineStore('power', {
         await PowerService.schedule(seconds);
         this.deadline = Date.now() + seconds * 1000;
         this.startCountdown();
+        void useHistoryStore().load({ reportError: false });
       } catch (error) {
         app.reportError(error);
       } finally {
@@ -41,6 +44,7 @@ export const usePowerStore = defineStore('power', {
     async cancelSchedule() {
       try {
         await PowerService.cancelSchedule();
+        void useHistoryStore().load({ reportError: false });
       } catch (error) {
         useAppStore().reportError(error);
       }
