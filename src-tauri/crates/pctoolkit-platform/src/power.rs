@@ -21,16 +21,18 @@ pub fn execute_power_action(action: PowerAction) -> PlatformResult<()> {
         PowerAction::Hibernate => run_shutdown(&["/h"]),
         PowerAction::SignOut => run_shutdown(&["/l"]),
         PowerAction::Sleep => {
-            Command::new("rundll32.exe")
-                .args(["powrprof.dll,SetSuspendState", "0,1,0"])
-                .spawn()
+            let mut cmd = Command::new("rundll32.exe");
+            cmd.args(["powrprof.dll,SetSuspendState", "0,1,0"]);
+            crate::process::hide_console(&mut cmd);
+            cmd.spawn()
                 .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
             Ok(())
         }
         PowerAction::Lock => {
-            Command::new("rundll32.exe")
-                .args(["user32.dll,LockWorkStation"])
-                .spawn()
+            let mut cmd = Command::new("rundll32.exe");
+            cmd.args(["user32.dll,LockWorkStation"]);
+            crate::process::hide_console(&mut cmd);
+            cmd.spawn()
                 .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
             Ok(())
         }
