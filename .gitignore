@@ -36,6 +36,7 @@ node_modules
 dist-ssr
 *.local
 src-tauri/target
+.tauri/
 .cursor/hooks/
 
 # Editor junk
@@ -44,3 +45,5 @@ src-tauri/target
 *.njsproj
 *.sln
 *.sw?
+
+test_inspiration/
