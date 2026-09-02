@@ -1,6 +1,6 @@
 use pctoolkit_core::{
-    cancel_cleanup as core_cancel, execute_cleanup as core_execute, scan_cleanup,
-    CleanupExecuteRequest, CleanupResult, CleanupScan,
+    cancel_cleanup as core_cancel, execute_cleanup as core_execute,
+    scan_cleanup_with_progress, CleanupExecuteRequest, CleanupResult, CleanupScan,
 };
 use tauri::AppHandle;
 
@@ -8,8 +8,13 @@ use crate::commands::error::{run_blocking, CommandResult};
 use crate::events;
 
 #[tauri::command]
-pub async fn scan_cleanup_candidates() -> CommandResult<CleanupScan> {
-    run_blocking("scan_cleanup_candidates", scan_cleanup).await
+pub async fn scan_cleanup_candidates(app: AppHandle) -> CommandResult<CleanupScan> {
+    run_blocking("scan_cleanup_candidates", move || {
+        scan_cleanup_with_progress(|progress| {
+            events::emit(&app, events::CLEANUP_PROGRESS, progress);
+        })
+    })
+    .await
 }
 
 #[tauri::command]
