@@ -50,11 +50,13 @@
   --layout-sidebar-brand-height: 80px;
   --layout-sidebar-item-height: 40px;
   --layout-page-padding-inline: 28px;
-  --layout-page-header-height: 64px;
+  --layout-titlebar-height: 56px;
+  --layout-page-header-height: 72px;
   --layout-workspace-toolbar-height: 36px;
   --layout-result-row-height: 48px;
   --layout-action-bar-height: 52px;
   --window-controls-width: 138px;
+  --layout-titlebar-chrome-width: 470px;
   --sidebar-width: var(--layout-sidebar-expanded-width);
   --sidebar-transition-duration: 220ms;
   --sidebar-transition-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -109,22 +111,47 @@ body,
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease,
+    filter 0.12s ease;
 }
-.pt-btn:hover {
+.pt-btn:hover:not(:disabled) {
   background: var(--muted);
+  color: var(--foreground);
 }
 .pt-btn-primary {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--primary-foreground);
 }
-.pt-btn-primary:hover {
-  filter: brightness(0.96);
-  background: var(--primary);
+.pt-btn-primary:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--primary) 86%, black);
+  border-color: color-mix(in oklab, var(--primary) 86%, black);
+  color: var(--primary-foreground);
+  filter: none;
+}
+.pt-btn-danger {
+  background: var(--destructive);
+  border-color: var(--destructive);
+  color: var(--destructive-foreground, white);
+}
+.pt-btn-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--destructive) 86%, black);
+  border-color: color-mix(in oklab, var(--destructive) 86%, black);
+  color: var(--destructive-foreground, white);
+  filter: none;
 }
 .pt-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.pt-btn-ghost {
+  background: transparent;
+  border-color: color-mix(in oklab, var(--border) 80%, transparent);
+  color: var(--foreground);
+}
+.pt-btn-ghost:hover:not(:disabled) {
+  background: var(--muted);
+  color: var(--foreground);
 }
 
 ::-webkit-scrollbar {
@@ -139,4 +166,23 @@ body,
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Tauri custom window: drag chrome */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+[data-tauri-drag-region='false'],
+[data-tauri-drag-region='false'] *,
+.pt-page-actions,
+.pt-page-actions *,
+button,
+a,
+input,
+textarea,
+select,
+label {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
