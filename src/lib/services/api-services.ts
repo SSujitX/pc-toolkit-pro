@@ -77,6 +77,10 @@ export interface SystemInformation {
   username: string;
   monitors: string[];
   storageDevices: string[];
+  powerPlan: string;
+  powerSupplies: string[];
+  batteries: string[];
+  acLineStatus: string;
   copyText: string;
 }
 
