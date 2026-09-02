@@ -1,0 +1,34 @@
+---
+description: Tauri 2 + Rust adapter boundaries inspired by MangoDisk Core
+globs: "**/src-tauri/**/*.{rs,toml,json}"
+alwaysApply: false
+---
+
+# Rust / Tauri adapter
+
+## Boundaries
+
+- `crates/*-core`: product domains, safety, scan/cleanup — **no Tauri**.
+- `crates/*-platform`: OS facts and capabilities — **no product orchestration**.
+- `src-tauri/src/commands`: thin async adapters only.
+
+## Commands
+
+- Validate transport input → call Core → map typed errors.
+- Emit progress events from Core callbacks; never invent UI strings in Rust for control flow.
+- Register command + capability + frontend service binding in the same change.
+- Prefer `deny_unknown_fields` + camelCase serde for FE payloads.
+- Startup: no long filesystem work before first window paint.
+- Fast/no-hang: blocking Core work only via `spawn_blocking`/`run_blocking`; emit progress; support cancel; return typed `operationBusy` instead of deadlocking.
+
+## Safety
+
+- Destructive ops: preview/dry-run, protected paths, explicit confirmation, verification.
+- Privileged Windows APIs need an explicit capability boundary.
+- Logs: operation IDs, counts, timings — not full private paths or file contents.
+
+## Anti-patterns
+
+- Scan/cleanup algorithms inside `#[tauri::command]`
+- Catch-all `utils` / `manager` modules spanning unrelated domains
+- Expanding Tauri permissions "just in case"
