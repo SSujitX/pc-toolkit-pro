@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import { APP_NAME, APP_VERSION } from '@/lib/models/application-shell';
 import { useAppStore } from '@/stores/app-store';
+import appLogo from '@/assets/brand/logo.png';
 
 const { t } = useI18n();
 const app = useAppStore();
@@ -31,11 +32,16 @@ const app = useAppStore();
         </button>
       </div>
     </section>
-    <section class="card">
+    <section class="card about">
       <h3>{{ t('settings.about') }}</h3>
-      <p>{{ APP_NAME }}</p>
-      <p>{{ t('settings.version', { version: APP_VERSION }) }}</p>
-      <p class="muted">{{ t('app.tagline') }}</p>
+      <div class="about-row">
+        <img :src="appLogo" :alt="APP_NAME" class="about-logo" width="64" height="64" />
+        <div>
+          <p class="about-name">{{ APP_NAME }}</p>
+          <p>{{ t('settings.version', { version: APP_VERSION }) }}</p>
+          <p class="muted">{{ t('app.tagline') }}</p>
+        </div>
+      </div>
     </section>
   </PtPageShell>
 </template>
@@ -74,6 +80,23 @@ h3 {
 .muted {
   color: var(--muted-foreground);
   font-size: 0.75rem;
+}
+.about-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.about-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  object-fit: cover;
+  flex: none;
+  box-shadow: var(--shadow-card);
+}
+.about-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
 }
 p {
   margin: 0 0 4px;
