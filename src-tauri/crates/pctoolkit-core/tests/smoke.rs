@@ -6,6 +6,11 @@ use pctoolkit_core::scan_cleanup;
 fn cleanup_scan_returns_categories() {
     let scan = scan_cleanup().expect("scan should work without admin for listing");
     assert!(!scan.items.is_empty());
+    // Default scan categories must not gate on elevation.
+    assert!(
+        scan.items.iter().all(|item| !item.requires_admin),
+        "default cleanup scan categories must not require admin"
+    );
 }
 
 #[test]
