@@ -1,7 +1,7 @@
 html[data-skin='pctoolkit'] {
-  /* PC Toolkit brand accent (teal/cyan), MangoDisk-like soft surfaces */
-  --brand-primary: oklch(0.58 0.12 220);
-  --brand-primary-foreground: oklch(0.98 0.01 220);
+  /* Cream surfaces + logo blue primary */
+  --brand-primary: oklch(0.52 0.12 250);
+  --brand-primary-foreground: oklch(0.99 0 0);
   --primary: var(--brand-primary);
   --primary-foreground: var(--brand-primary-foreground);
 }
