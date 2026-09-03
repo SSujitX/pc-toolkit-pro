@@ -173,6 +173,7 @@ mod windows_impl {
         OPEN_EXISTING,
     };
     use windows::Win32::System::IO::DeviceIoControl;
+    use windows::Win32::System::ProcessStatus::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
     use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -221,6 +222,12 @@ mod windows_impl {
         flags: i64,
     }
 
+    /// Physical numbers follow Task Manager / RAM-cleaner semantics: "available"
+    /// counts the standby + free + zeroed page lists (`GetPerformanceInfo`).
+    /// `dwMemoryLoad` (GlobalMemoryStatusEx) treats standby cache as used, so it
+    /// reads visibly higher than Task Manager whenever Windows caches pages in
+    /// standby. GlobalMemoryStatusEx remains the source for virtual (commit)
+    /// stats and the fallback if `GetPerformanceInfo` fails.
     pub fn memory_stats() -> PlatformResult<MemoryStats> {
         unsafe {
             let mut status: MEMORYSTATUSEX = zeroed();
@@ -228,10 +235,16 @@ mod windows_impl {
             GlobalMemoryStatusEx(&mut status)
                 .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
 
-            let physical_total = status.ullTotalPhys;
-            let physical_avail = status.ullAvailPhys;
+            let (physical_total, physical_avail) = match physical_available_via_performance_info() {
+                Some((total, avail)) => (total, avail),
+                None => (status.ullTotalPhys, status.ullAvailPhys),
+            };
             let physical_used = physical_total.saturating_sub(physical_avail);
-            let physical_load_percent = status.dwMemoryLoad as f32;
+            let physical_load_percent = if physical_total == 0 {
+                0.0
+            } else {
+                (physical_used as f64 / physical_total as f64 * 100.0) as f32
+            };
 
             let virtual_total = status.ullTotalPageFile;
             let virtual_avail = status.ullAvailPageFile;
@@ -252,6 +265,23 @@ mod windows_impl {
                 virtual_used,
                 virtual_load_percent,
             })
+        }
+    }
+
+    /// `(total, available)` bytes from `GetPerformanceInfo`, or `None` when the
+    /// call fails. Available = standby + free + zeroed lists — the same
+    /// definition Task Manager uses for its "In use / Available" split.
+    fn physical_available_via_performance_info() -> Option<(u64, u64)> {
+        unsafe {
+            let mut info = PERFORMANCE_INFORMATION::default();
+            GetPerformanceInfo(&mut info, size_of::<PERFORMANCE_INFORMATION>() as u32).ok()?;
+            if info.PhysicalTotal == 0 || info.PageSize == 0 {
+                return None;
+            }
+            let page = info.PageSize as u64;
+            let total = info.PhysicalTotal as u64 * page;
+            let available = (info.PhysicalAvailable as u64).min(info.PhysicalTotal as u64) * page;
+            Some((total, available))
         }
     }
 
@@ -598,6 +628,42 @@ mod tests {
                 MemoryArea::StandbyList,
                 MemoryArea::RegistryCache,
             ]
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn memory_stats_follows_task_manager_semantics() {
+        let stats = memory_stats().expect("memory stats are available on Windows");
+
+        assert!(stats.physical_total > 0, "physical total must be positive");
+        assert!(
+            stats.physical_avail <= stats.physical_total,
+            "available memory cannot exceed total"
+        );
+        assert_eq!(
+            stats.physical_used,
+            stats.physical_total.saturating_sub(stats.physical_avail),
+            "used must be derived as total - available"
+        );
+        assert!(
+            (0.0..=100.0).contains(&stats.physical_load_percent),
+            "load percent must stay in 0..=100"
+        );
+
+        // Load must track used/total (Task Manager definition) instead of the
+        // coarse kernel-reported dwMemoryLoad integer.
+        let expected = stats.physical_used as f64 / stats.physical_total as f64 * 100.0;
+        assert!(
+            (stats.physical_load_percent as f64 - expected).abs() < 0.01,
+            "load percent must equal used/total * 100"
+        );
+
+        // Virtual (commit) stats still come from GlobalMemoryStatusEx.
+        assert!(stats.virtual_total > 0, "commit total must be positive");
+        assert!(
+            (0.0..=100.0).contains(&stats.virtual_load_percent),
+            "virtual load percent must stay in 0..=100"
         );
     }
 }
