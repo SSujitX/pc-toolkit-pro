@@ -1,7 +1,16 @@
 use serde::Serialize;
+use std::sync::{Mutex, OnceLock};
 use sysinfo::{Disks, System};
 
 use crate::{PlatformError, PlatformResult};
+
+/// One persistent sampler: CPU usage needs prior samples to diff against, so a
+/// fresh `System` per poll would always report ~0%. A single instance also
+/// avoids per-second reallocation on the titlebar/tray polling path.
+fn shared_system() -> &'static Mutex<System> {
+    static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();
+    SYSTEM.get_or_init(|| Mutex::new(System::new()))
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,14 +38,19 @@ pub struct OsLabel {
 }
 
 pub fn sample_monitor() -> PlatformResult<MonitorSample> {
-    let mut sys = System::new();
     // Single CPU refresh — avoid sleeping on every titlebar/tray poll (live updates).
     // First sample after process start may read ~0%; later polls stabilize.
-    sys.refresh_cpu_usage();
-    let cpu = sys.global_cpu_usage();
+    let cpu = {
+        let sys = shared_system()
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        sys.refresh_cpu_usage();
+        sys.global_cpu_usage()
+    };
 
-    // Prefer GlobalMemoryStatusEx (same dwMemoryLoad as Memory Cleaner / WMC).
-    // sysinfo used/total can disagree with Task Manager and the Memory page.
+    // Same Win32 source as the Memory page (Task Manager-consistent load), so
+    // titlebar/tray gauges match the page and system tools. sysinfo used/total
+    // can disagree with Task Manager; it is only a rare failure fallback.
     let (memory_total, memory_used, memory_percent) = match crate::memory::memory_stats() {
         Ok(stats) => (
             stats.physical_total,
@@ -44,6 +58,10 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
             stats.physical_load_percent,
         ),
         Err(_) => {
+            // Rare fallback: only if the Win32 stats call fails entirely.
+            let mut sys = shared_system()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             sys.refresh_memory();
             let memory_total = sys.total_memory();
             let memory_used = sys.used_memory();
