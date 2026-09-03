@@ -32,10 +32,11 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
       autoFreeBelowPercent: 0,
     } as MemoryCleanerSettings,
     settingsLoaded: false,
-    elevatedHint: false,
     isElevated: false,
     elevationLoaded: false,
     restartingElevated: false,
+    elevationPromptOpen: false,
+    pendingOptimizeReason: null as OptimizeReason | null,
     lastOptimizeAt: 0,
     lastLowMemoryOptimizeAt: 0,
     autoTimer: null as number | null,
@@ -54,10 +55,8 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
       try {
         const status = await MemoryCleanerService.getElevationStatus();
         this.isElevated = status.elevated;
-        this.elevatedHint = !status.elevated;
       } catch {
         this.isElevated = false;
-        this.elevatedHint = true;
       } finally {
         this.elevationLoaded = true;
       }
@@ -73,6 +72,33 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
         this.restartingElevated = false;
         if (!isCancelledError(error)) app.reportError(error);
       }
+    },
+    /** Interactive optimize (page / titlebar): prompt to elevate when needed. */
+    async requestOptimize(reason: OptimizeReason = 'manual') {
+      if (this.loading || this.restartingElevated) return;
+      if (!this.settingsLoaded) await this.loadSettings();
+      if (!this.elevationLoaded) await this.loadElevation();
+      if (!this.isElevated) {
+        this.pendingOptimizeReason = reason;
+        this.elevationPromptOpen = true;
+        return;
+      }
+      await this.run(reason);
+    },
+    async confirmElevationRestart() {
+      this.elevationPromptOpen = false;
+      this.pendingOptimizeReason = null;
+      await this.restartAsAdministrator();
+    },
+    async declineElevationContinue() {
+      const reason = this.pendingOptimizeReason ?? 'manual';
+      this.elevationPromptOpen = false;
+      this.pendingOptimizeReason = null;
+      await this.run(reason);
+    },
+    setElevationPromptOpen(open: boolean) {
+      this.elevationPromptOpen = open;
+      if (!open) this.pendingOptimizeReason = null;
     },
     async loadSettings() {
       try {
@@ -205,7 +231,7 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
           },
           this.selectedAreas
         );
-        this.elevatedHint = !this.result.adminOptimizations;
+        this.isElevated = this.result.adminOptimizations || this.isElevated;
         this.lastOptimizeAt = Date.now();
         if (reason === 'lowMemory') {
           this.lastLowMemoryOptimizeAt = this.lastOptimizeAt;
