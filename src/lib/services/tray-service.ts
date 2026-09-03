@@ -7,6 +7,7 @@ import { ApplicationWindowService } from './application-window-service';
 import { MonitorService, PowerService } from './api-services';
 import { useAppStore } from '@/stores/app-store';
 import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
+import { useMonitorStore } from '@/stores/monitor-store';
 import { PAGE_IDS } from '@/lib/models/application-shell';
 import { formatBytes } from '@/lib/utils/format';
 import { i18n } from '@/i18n';
@@ -63,6 +64,7 @@ async function runCleanMemoryFromTray() {
 
     try {
       const snap = await MonitorService.snapshot();
+      useMonitorStore().$patch({ snapshot: snap });
       await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
     } catch {
       // keep previous status if refresh fails
@@ -240,10 +242,12 @@ export async function setupTray(): Promise<void> {
       }
     }
 
+    // Reuse monitor store’s 1s live snapshot (same GlobalMemoryStatusEx % as Memory page).
     tooltipTimer = window.setInterval(async () => {
       if (cleaningFromTray) return;
+      const snap = useMonitorStore().snapshot;
+      if (!snap) return;
       try {
-        const snap = await MonitorService.snapshot();
         const gpu = snap.gpuAvailable
           ? ` · GPU ${snap.gpuUtilization?.toFixed(0) ?? 0}%`
           : '';
@@ -254,10 +258,11 @@ export async function setupTray(): Promise<void> {
       } catch {
         // ignore tray tooltip failures
       }
-    }, 2000);
+    }, 1000);
 
     void MonitorService.snapshot()
       .then(async (snap) => {
+        useMonitorStore().$patch({ snapshot: snap });
         await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
         await tray?.setTooltip(
           `RAM ${snap.memoryPercent.toFixed(0)}% · CPU ${snap.cpu.toFixed(0)}%`
