@@ -71,7 +71,7 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 - Window close on `main` hides to tray; Exit from tray quits. Preserve single-instance focus behavior.
 - Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets and publishes `latest.json`. Write the secret to a temp file, then set `TAURI_SIGNING_PRIVATE_KEY` from that file in the build step (avoid `Out-File` UTF-8 BOM into `GITHUB_ENV`). Never commit private keys under `.tauri/`.
 - NSIS: `bundle.windows.nsis.installMode` is **`currentUser`** (install under `%LOCALAPPDATA%\PC Toolkit Pro\`, Start Menu + uninstall, no admin for install). `mainBinaryName` is `PCToolkitPro`.
-- Release publish renames artifacts to **`PC Toolkit Pro v{version} Setup.exe`** / **`PC Toolkit Pro v{version}.exe`** (same scheme as the GitHub Release title). Updater `latest.json` URL must use that setup filename.
+- Release: **Actions → Release → bump** (`current|patch|minor|major`) from root `VERSION`. Publishes **`PC Toolkit Pro v{version} Setup.exe`** / **`PC Toolkit Pro v{version}.exe`**, `SHA256SUMS`, and updater `latest.json` (URL must use the setup filename). Categorized conventional-commit notes. Do not free-type semver.
 - `tauri` Cargo features for tray icons include `tray-icon`, `image-png`, and `image-ico` when embedding/loading tray images.
 
 ## Blocking work and cancel
