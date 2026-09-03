@@ -72,11 +72,16 @@ const groupAllSelected = computed(
 );
 
 const progressPct = computed(() => {
-  if (isBusy.value && store.progress?.phase === 'executing') {
-    const total = Math.max(1, selectedCount.value);
-    return Math.min(100, Math.round((store.progress.itemsScanned / total) * 100));
+  if (!isBusy.value) return 0;
+  const p = store.progress;
+  if (p?.total && p.total > 0) {
+    return Math.min(100, Math.round((Math.max(0, p.current ?? 0) / p.total) * 100));
   }
-  return isBusy.value ? 22 : 0;
+  if (p?.phase === 'executing') {
+    const total = Math.max(1, selectedCount.value);
+    return Math.min(100, Math.round((p.itemsScanned / total) * 100));
+  }
+  return 4;
 });
 
 const isCleaning = computed(() => store.progress?.phase === 'executing');
@@ -198,7 +203,6 @@ function riskLabel(risk: string) {
       :source-value="sourceValue"
       :source-icon="FolderOpen"
       :progress="progressPct"
-      :indeterminate="!isCleaning"
       :stats="stats"
       :hint="isCleaning ? t('deepCleaner.cleanHint') : t('deepCleaner.scanHint')"
       :icon="Paintbrush"
