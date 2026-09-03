@@ -10,7 +10,7 @@ use std::sync::Mutex;
 use crate::history::{append_history, history_now_ms, HistoryOutcome, HistoryWrite};
 use crate::shared::{CoreError, CoreResult};
 
-static CANCELLED: AtomicBool = AtomicBool::new(false);
+pub(crate) static CANCELLED: AtomicBool = AtomicBool::new(false);
 static BUSY: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -77,7 +77,7 @@ pub fn cancel_cleanup() {
     CANCELLED.store(true, Ordering::SeqCst);
 }
 
-fn check_cancel() -> CoreResult<()> {
+pub(crate) fn check_cancel() -> CoreResult<()> {
     if CANCELLED.load(Ordering::SeqCst) {
         Err(CoreError::OperationCancelled)
     } else {
@@ -85,7 +85,7 @@ fn check_cancel() -> CoreResult<()> {
     }
 }
 
-fn acquire_busy() -> CoreResult<()> {
+pub(crate) fn acquire_busy() -> CoreResult<()> {
     if BUSY
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
@@ -96,7 +96,7 @@ fn acquire_busy() -> CoreResult<()> {
     Ok(())
 }
 
-fn release_busy() {
+pub(crate) fn release_busy() {
     BUSY.store(false, Ordering::SeqCst);
 }
 
