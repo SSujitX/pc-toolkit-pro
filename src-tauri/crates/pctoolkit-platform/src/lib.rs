@@ -12,7 +12,7 @@ mod system_info;
 
 pub use errors::{PlatformError, PlatformResult};
 pub use gpu::GpuSample;
-pub use launch::{launch_program, QuickActionId};
+pub use launch::{launch_program, relaunch_self_elevated, QuickActionId};
 pub use memory::{
     free_physical_memory_bytes, memory_stats, optimize_memory, optimize_memory_areas,
     ordered_areas, AreaOutcome, AreaStatus, MemoryArea, MemoryOptimizeResult, MemoryStats,
