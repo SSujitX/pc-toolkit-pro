@@ -153,6 +153,43 @@ export class CleanerService {
   }
 }
 
+export class DeepCleanerService {
+  static async scanWithProgress(
+    handler: (progress: import('@/lib/models/deep-cleaner').DeepCleanupProgress) => void
+  ): Promise<import('@/lib/models/deep-cleaner').DeepCleanupScan> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/deep-cleaner').DeepCleanupProgress>(
+        'deep-cleanup-progress',
+        (e) => handler(e.payload)
+      );
+      return await invoke('scan_deep_cleanup');
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static async executeWithProgress(
+    ruleIds: string[],
+    handler: (progress: import('@/lib/models/deep-cleaner').DeepCleanupProgress) => void
+  ): Promise<import('@/lib/models/deep-cleaner').DeepCleanupResult> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/deep-cleaner').DeepCleanupProgress>(
+        'deep-cleanup-progress',
+        (e) => handler(e.payload)
+      );
+      return await invoke('execute_deep_cleanup_command', { request: { ruleIds } });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static cancel(): Promise<void> {
+    return invoke('cancel_cleanup');
+  }
+}
+
 export class PowerService {
   static execute(action: PowerAction): Promise<void> {
     return invoke('execute_power_action', { action });
