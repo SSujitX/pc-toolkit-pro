@@ -3,19 +3,19 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Boxes,
-  Brain,
   FolderOpen,
   Globe,
   Layers,
   Package,
+  Paintbrush,
   Recycle,
   Sparkles,
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
-import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
 import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue';
 import PtSoftSelect from '@/components/custom/pt-soft-select.vue';
+import PtDeepCleanupConfirm from '@/pages/deep-cleaner/pt-deep-cleanup-confirm.vue';
 import { formatBytes } from '@/lib/utils/format';
 import {
   DEEP_CLEANUP_GROUPS,
@@ -199,21 +199,30 @@ function riskLabel(risk: string) {
       :source-icon="FolderOpen"
       :progress="progressPct"
       :stats="stats"
-      :hint="t('deepCleaner.scanHint')"
-      :icon="Brain"
+      :hint="isCleaning ? t('deepCleaner.cleanHint') : t('deepCleaner.scanHint')"
+      :icon="Paintbrush"
       :cancel-label="t('common.cancel')"
       @cancel="store.cancel()"
     />
 
     <div v-else-if="showResults && foundCount > 0" class="results">
       <header class="summary">
-        <div>
+        <div class="summary-copy">
           <strong>{{ t('deepCleaner.summaryCount', { count: foundCount }) }}</strong>
-          <span>
+          <span class="summary-space">
             {{ t('deepCleaner.summarySpace') }}
             <em>{{ formatBytes(foundBytes) }}</em>
           </span>
         </div>
+        <label class="mode">
+          <Sparkles :size="14" :stroke-width="2" aria-hidden="true" />
+          <span class="mode-label">{{ t('deepCleaner.selectionLabel') }}</span>
+          <PtSoftSelect
+            :model-value="store.selectionMode === 'manual' ? 'smart' : store.selectionMode"
+            :options="selectionOptions"
+            @update:model-value="onSelectionMode"
+          />
+        </label>
       </header>
 
       <div class="browser">
@@ -276,11 +285,18 @@ function riskLabel(risk: string) {
                 <span class="rule-copy">
                   <strong>{{ t(rule.nameKey) }}</strong>
                   <span v-if="rule.risk === 'safe'" class="badge">{{ riskLabel(rule.risk) }}</span>
+                  <span
+                    v-if="rule.requiresElevation"
+                    class="badge badge-admin"
+                    :title="t('deepCleaner.adminRequiredHint')"
+                  >{{ t('deepCleaner.adminRequired') }}</span>
                 </span>
               </label>
               <div class="rule-meta">
                 <strong>{{ formatBytes(rule.bytes) }}</strong>
-                <small>{{ t('deepCleaner.selectedLabel') }}</small>
+                <small>{{
+                  rule.selected ? t('deepCleaner.selectedLabel') : t('deepCleaner.cleanableLabel')
+                }}</small>
               </div>
             </li>
           </ul>
@@ -297,24 +313,14 @@ function riskLabel(risk: string) {
             <em>{{ formatBytes(selectedBytes) }}</em>
           </span>
         </div>
-        <div class="action-controls">
-          <label class="mode">
-            <Sparkles :size="14" :stroke-width="2" aria-hidden="true" />
-            <PtSoftSelect
-              :model-value="store.selectionMode === 'manual' ? 'smart' : store.selectionMode"
-              :options="selectionOptions"
-              @update:model-value="onSelectionMode"
-            />
-          </label>
-          <button
-            type="button"
-            class="pt-btn pt-btn-primary"
-            :disabled="selectedCount === 0"
-            @click="confirmOpen = true"
-          >
-            {{ t('deepCleaner.clean') }}
-          </button>
-        </div>
+        <button
+          type="button"
+          class="pt-btn pt-btn-primary"
+          :disabled="selectedCount === 0"
+          @click="confirmOpen = true"
+        >
+          {{ t('deepCleaner.clean') }}
+        </button>
       </footer>
 
       <section v-if="store.result" class="result-card">
@@ -350,17 +356,10 @@ function riskLabel(risk: string) {
       </div>
     </div>
 
-    <PtConfirmDialog
+    <PtDeepCleanupConfirm
       v-model:open="confirmOpen"
-      :title="t('deepCleaner.title')"
-      :message="
-        t('deepCleaner.confirmClean', {
-          count: selectedCount,
-          bytes: formatBytes(selectedBytes),
-        })
-      "
-      :confirm-text="t('deepCleaner.clean')"
-      destructive
+      :rules="store.selectedRules"
+      :selected-bytes="selectedBytes"
       @confirm="store.execute()"
     />
   </PtPageShell>
@@ -369,8 +368,11 @@ function riskLabel(risk: string) {
 <style scoped>
 .hero {
   display: grid;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
   place-items: center;
-  min-height: 420px;
+  place-content: center;
   padding: 24px;
 }
 .hero-card {
@@ -412,14 +414,23 @@ function riskLabel(risk: string) {
 }
 .summary {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
   padding: 4px 2px;
+}
+.summary-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
 }
 .summary strong {
   font-size: 0.9375rem;
 }
-.summary span {
+.summary-space {
   color: var(--muted-foreground);
   font-size: 0.8125rem;
 }
@@ -427,6 +438,12 @@ function riskLabel(risk: string) {
   font-style: normal;
   font-weight: 700;
   color: var(--primary);
+  font-size: 1.125rem;
+}
+.mode-label {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 .browser {
   display: grid;
@@ -586,6 +603,10 @@ function riskLabel(risk: string) {
   font-size: 0.625rem;
   font-weight: 700;
 }
+.badge-admin {
+  background: color-mix(in oklab, var(--warning, #d97706) 18%, transparent);
+  color: color-mix(in oklab, var(--warning, #b45309) 85%, var(--foreground));
+}
 .rule-meta {
   text-align: right;
 }
@@ -622,17 +643,12 @@ function riskLabel(risk: string) {
   font-weight: 700;
   color: var(--foreground);
 }
-.action-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 .mode {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--muted-foreground);
-  min-width: 180px;
+  min-width: 220px;
 }
 .result-card {
   display: flex;
@@ -646,9 +662,12 @@ function riskLabel(risk: string) {
 }
 .empty {
   display: grid;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
   place-items: center;
+  place-content: center;
   gap: 14px;
-  min-height: 320px;
   color: var(--muted-foreground);
 }
 @media (max-width: 960px) {
