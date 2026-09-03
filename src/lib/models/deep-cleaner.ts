@@ -9,6 +9,8 @@ export interface DeepCleanupProgress {
   bytesScanned: number;
   elapsedMs: number;
   message: string;
+  current?: number;
+  total?: number;
 }
 
 export interface DeepCleanupRule {
