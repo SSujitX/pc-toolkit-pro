@@ -1,5 +1,5 @@
 use pctoolkit_platform::{
-    empty_recycle_bin, is_user_admin, MemoryOptimizeResult,
+    empty_recycle_bin, is_user_admin, query_recycle_bin, MemoryOptimizeResult,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -121,6 +121,7 @@ where
         check_cancel()?;
         let (temp_bytes, temp_count) = estimate_temp_bytes(&mut on_progress)?;
         check_cancel()?;
+        let recycle = query_recycle_bin().unwrap_or_default();
         on_progress(CleanupProgress {
             phase: "scanning".into(),
             current: 4,
@@ -143,12 +144,12 @@ where
                 CleanupScanItem {
                     id: CleanerCategory::RecycleBin,
                     title_key: "deepCleaner.recycleBin".into(),
-                    estimated_bytes: 0,
+                    estimated_bytes: recycle.bytes,
                     requires_admin: false,
                     selected: true,
                     risk_key: "deepCleaner.riskLow".into(),
                     detail_key: "deepCleaner.recycleBinDetail".into(),
-                    item_count: 1,
+                    item_count: recycle.item_count.max(1) as u32,
                 },
                 CleanupScanItem {
                     id: CleanerCategory::DiskCleanup,
@@ -221,7 +222,9 @@ where
                     log.extend(lines);
                 }
                 CleanerCategory::RecycleBin => {
-                    empty_recycle_bin()?;
+                    let emptied = empty_recycle_bin()?;
+                    freed_bytes += emptied.released_bytes;
+                    files_removed += emptied.released_items;
                     log.push("Recycle bin emptied".into());
                 }
                 CleanerCategory::DiskCleanup => {
