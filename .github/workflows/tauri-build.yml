@@ -15,6 +15,7 @@ on:
       - 'tsconfig*.json'
       - 'index.html'
       - 'VERSION'
+      - 'scripts/sync-version.mjs'
       - 'scripts/sync-version.sh'
       - '.github/workflows/tauri-build.yml'
   pull_request:
