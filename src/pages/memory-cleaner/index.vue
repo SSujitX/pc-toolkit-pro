@@ -8,7 +8,6 @@ import {
   Gauge,
   HardDrive,
   MemoryStick,
-  Shield,
 } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
@@ -213,29 +212,6 @@ function areaDetail(status: string, detail?: string | null) {
         </section>
       </div>
 
-      <div
-        v-if="store.elevationLoaded && !store.isElevated"
-        class="hint-banner hint-banner-row"
-      >
-        <p>{{ t('memoryCleaner.adminHint') }}</p>
-        <button
-          type="button"
-          class="elevate-btn"
-          :disabled="store.restartingElevated || isBusy"
-          @click="store.restartAsAdministrator()"
-        >
-          <Shield :size="14" :stroke-width="2.25" aria-hidden="true" />
-          {{
-            store.restartingElevated
-              ? t('memoryCleaner.restartAsAdminBusy')
-              : t('memoryCleaner.restartAsAdmin')
-          }}
-        </button>
-      </div>
-      <p v-else-if="store.elevationLoaded && store.isElevated" class="hint-banner hint-ok">
-        {{ t('memoryCleaner.elevatedReady') }}
-      </p>
-
       <section class="panel">
         <header class="panel-head">
           <div class="panel-copy">
@@ -371,7 +347,7 @@ function areaDetail(status: string, detail?: string | null) {
       :title="t('memoryCleaner.title')"
       :message="t('memoryCleaner.confirm')"
       :confirm-text="t('memoryCleaner.run')"
-      @confirm="store.run('manual')"
+      @confirm="store.requestOptimize('manual')"
     />
   </PtPageShell>
 </template>
@@ -469,53 +445,6 @@ function areaDetail(status: string, detail?: string | null) {
 .meter-meta strong {
   color: var(--foreground);
   font-weight: 600;
-}
-.hint-banner {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--warning) 14%, transparent);
-  color: var(--foreground);
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-.hint-banner-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 14px;
-}
-.hint-banner-row p {
-  margin: 0;
-  flex: 1 1 220px;
-  min-width: 0;
-}
-.hint-ok {
-  background: color-mix(in oklab, var(--success, var(--primary)) 12%, transparent);
-}
-.elevate-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--border));
-  border-radius: 10px;
-  background: color-mix(in oklab, var(--primary) 12%, var(--card));
-  color: var(--primary);
-  font-size: 0.75rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-.elevate-btn:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--primary) 18%, var(--card));
-  border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
-}
-.elevate-btn:disabled {
-  opacity: 0.65;
-  cursor: default;
 }
 .panel {
   padding: 14px 16px 16px;
