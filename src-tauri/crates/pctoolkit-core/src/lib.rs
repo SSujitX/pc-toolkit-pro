@@ -1,6 +1,7 @@
 //! Product domains — no Tauri dependency.
 
 pub mod cleaner;
+pub mod cleaner_deep;
 pub mod history;
 pub mod memory;
 pub mod monitor;
@@ -11,6 +12,11 @@ pub mod system_info;
 pub use cleaner::{
     cancel_cleanup, execute_cleanup, scan_cleanup, scan_cleanup_with_progress, CleanerCategory,
     CleanupExecuteRequest, CleanupProgress, CleanupResult, CleanupScan,
+};
+pub use cleaner_deep::{
+    execute_deep_cleanup, scan_deep_cleanup_with_progress, DeepCleanupExecuteRequest,
+    DeepCleanupGroup, DeepCleanupProgress, DeepCleanupResult, DeepCleanupRuleResult,
+    DeepCleanupScan,
 };
 pub use history::{
     append_history, clear_history, history_now_ms, list_history, record_history, HistoryOutcome,
