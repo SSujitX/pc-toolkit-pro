@@ -138,15 +138,21 @@ jobs:
           $nsis = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe |
             Where-Object { $_.Name -notlike '*.sig' } |
             Select-Object -First 1
-          $portable = "src-tauri/target/release/pc-toolkit-pro.exe"
+          $portableCandidates = @(
+            "src-tauri/target/release/PCToolkitPro.exe",
+            "src-tauri/target/release/pc-toolkit-pro.exe"
+          )
+          $portable = $portableCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $nsis) { throw "NSIS installer not found" }
-          if (-not (Test-Path $portable)) { throw "Portable exe not found" }
+          if (-not $portable) { throw "Portable exe not found (expected PCToolkitPro.exe)" }
 
           $version = "${{ steps.ver.outputs.version }}"
-          $setupName = "PC-Toolkit-Pro-$version-setup.exe"
+          # Match GitHub release title: "PC Toolkit Pro vX.Y.Z"
+          $setupName = "PC Toolkit Pro v$version Setup.exe"
+          $portableName = "PC Toolkit Pro v$version.exe"
           New-Item -ItemType Directory -Force -Path release-out | Out-Null
           Copy-Item $nsis.FullName "release-out/$setupName"
-          Copy-Item $portable "release-out/PC-Toolkit-Pro-$version.exe"
+          Copy-Item $portable "release-out/$portableName"
 
           $sig = Get-ChildItem "$($nsis.DirectoryName)/*.sig" |
             Where-Object { $_.BaseName -eq $nsis.Name -or $_.Name -like "$($nsis.BaseName)*.sig" } |
@@ -161,7 +167,7 @@ jobs:
             $env:RELEASE_TAG = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "v$version" }
             node ./scripts/build-updater-latest.mjs `
               --version $version `
-              --notes "PC Toolkit Pro $version" `
+              --notes "PC Toolkit Pro v$version" `
               --setup "release-out/$setupName" `
               --signature "release-out/$setupName.sig" `
               --out release-out/latest.json
