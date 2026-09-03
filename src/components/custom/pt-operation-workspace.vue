@@ -61,7 +61,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
           :aria-label="status"
         >
           <div class="ring-disc" aria-hidden="true" />
-          <svg class="ring ring-spin" viewBox="0 0 48 48" aria-hidden="true">
+          <svg class="ring" viewBox="0 0 48 48" aria-hidden="true">
             <circle class="spin-arc" cx="24" cy="24" :r="RING_R" />
           </svg>
           <svg class="ring ring-progress" viewBox="0 0 48 48" aria-hidden="true">
@@ -146,14 +146,15 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   gap: 14px;
 }
 
-/* Perfect circle — never a rounded square frame */
+/* Perfect circle — never rotate a square SVG (that paints spinning boxes). */
 .ring-wrap {
   position: relative;
   width: 52px;
   height: 52px;
   flex: none;
   border-radius: 50%;
-  overflow: visible;
+  overflow: hidden;
+  isolation: isolate;
 }
 .ring-disc {
   position: absolute;
@@ -167,13 +168,14 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   inset: 0;
   width: 52px;
   height: 52px;
-  overflow: visible;
+  display: block;
+  border: 0;
+  outline: none;
+  overflow: hidden;
+  pointer-events: none;
 }
 .ring-progress {
   transform: rotate(-90deg);
-}
-.ring-spin {
-  animation: ring-rotate 1.15s linear infinite;
 }
 .ring-track,
 .ring-value,
@@ -190,10 +192,12 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   stroke-width: 3.25;
   transition: stroke-dashoffset 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* Indeterminate motion via dashoffset on the arc only — stays circular. */
 .spin-arc {
   stroke: color-mix(in oklab, var(--primary) 55%, transparent);
   stroke-width: 2.5;
-  stroke-dasharray: 28 98;
+  stroke-dasharray: 31.4 94.2; /* ~1/4 of 2πr */
+  animation: spin-dash 1s linear infinite;
 }
 .ring-icon {
   position: absolute;
@@ -203,6 +207,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   border-radius: 50%;
   color: var(--primary);
   pointer-events: none;
+  z-index: 1;
 }
 
 .op-copy .status {
@@ -324,9 +329,9 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   background: var(--muted);
 }
 
-@keyframes ring-rotate {
+@keyframes spin-dash {
   to {
-    transform: rotate(360deg);
+    stroke-dashoffset: -125.6; /* full circumference */
   }
 }
 @keyframes ring-breathe {
@@ -349,7 +354,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
 
 @media (prefers-reduced-motion: reduce) {
   .op-stage,
-  .ring-spin,
+  .spin-arc,
   .ring-disc,
   .ring-value,
   .bar span {
