@@ -50,7 +50,7 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 
 - Power actions and scheduled shutdown live in platform + Core; adapter commands stay thin. Prefer `System32\shutdown.exe`, wait for exit status (Python-era `check=True`), and cancel-then-reschedule before a new `/t` timer. Lock/sleep use Win32 (`LockWorkStation` / `SetSuspendState`), not rundll32 stubs.
 - Quick-action GUI tools launch via System32 + `cmd /C start` so PATH/console flags from the Tauri host do not block Task Manager and peers.
-- Monitor samples feed the titlebar and Monitor page; keep sampling cheap and non-blocking on the UI path.
+- Monitor samples feed the titlebar and Monitor page; keep sampling cheap and non-blocking on the UI path. Titlebar/tray RAM % must use `memory_stats()` / `GlobalMemoryStatusEx` (`dwMemoryLoad`), not a divergent sysinfo ratio. Avoid sleeping inside every `sample_monitor` poll.
 - System information collection must avoid flashing a console window. Prefer quiet Win32 / WMI-style collection with typed fields (CPU, disks, RAM, GPU, monitors, motherboard, OS, PSU name when available). Emit staged `SystemInfoProgress` (`metrics` → `hardware` → `gpu` → `assemble`) for the Information UI.
 - Memory privilege enable must treat `ERROR_NOT_ALL_ASSIGNED` as failure; map `STATUS_PRIVILEGE_NOT_HELD` to `skippedNeedAdmin`, not fake `ok` / vague `failed`.
 
