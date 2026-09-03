@@ -9,7 +9,7 @@ This file applies only to `src-tauri/` and inherits the repository-wide rules in
 - `src/` (under `src-tauri`): thin Tauri adapter. Commands validate transport input, call Core, translate typed errors, and publish events.
 - Plugins (`tauri-plugin-*`): isolated integration only (opener, process, single-instance, updater, tray via Tauri features). Register plugin init, capabilities, and frontend bindings in the same change. Tray icon itself is bootstrapped in `lib.rs` (`pctoolkit-main-tray`); frontend sets the menu.
 
-Core modules today: `cleaner`, `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process`, `gpu`, and related helpers. Adapter commands also include `settings::open_app_data_folder` (shell helper, not a new Core domain).
+Core modules today: `cleaner`, `cleaner_deep` (Deep Cleanup rule catalog/scan/execute), `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process`, `gpu`, and related helpers. Adapter commands also include `settings::open_app_data_folder` (shell helper, not a new Core domain). Deep Cleanup commands: `scan_deep_cleanup`, `execute_deep_cleanup_command`, progress event `deep-cleanup-progress`; cancel shares `cancel_cleanup`.
 
 Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, memory, power, and history as separate implementations that collaborate through typed requests/results.
 
