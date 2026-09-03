@@ -41,7 +41,7 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
     // Single CPU refresh — avoid sleeping on every titlebar/tray poll (live updates).
     // First sample after process start may read ~0%; later polls stabilize.
     let cpu = {
-        let sys = shared_system()
+        let mut sys = shared_system()
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         sys.refresh_cpu_usage();
