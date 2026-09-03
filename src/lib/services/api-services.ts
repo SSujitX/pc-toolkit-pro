@@ -188,6 +188,19 @@ export class DeepCleanerService {
   static cancel(): Promise<void> {
     return invoke('cancel_cleanup');
   }
+
+  static probeRunningProcesses(
+    names: string[]
+  ): Promise<import('@/lib/models/deep-cleaner').RunningProcessGroup[]> {
+    return invoke('probe_running_processes_command', { request: { names } });
+  }
+
+  static closeRunningProcesses(
+    names: string[],
+    force: boolean
+  ): Promise<import('@/lib/models/deep-cleaner').ProcessCloseBatchResult> {
+    return invoke('close_running_processes_command', { request: { names, force } });
+  }
 }
 
 export class PowerService {
