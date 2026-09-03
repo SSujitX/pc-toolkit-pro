@@ -32,19 +32,11 @@ const props = withDefaults(
 
 const emit = defineEmits<{ cancel: [] }>();
 
-/** Circle radius in the 48×48 viewBox — circumference drives dashoffset. */
-const RING_R = 20;
-const RING_C = 2 * Math.PI * RING_R;
-
 const progressClamped = computed(() =>
   Math.min(100, Math.max(0, Number(props.progress) || 0))
 );
 
-const progressOffset = computed(() => {
-  const p = progressClamped.value / 100;
-  return RING_C * (1 - Math.max(0.06, p));
-});
-
+/** Horizontal bar only — the header ring is an indeterminate “working” spinner. */
 const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)));
 </script>
 
@@ -61,22 +53,8 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
           :aria-label="status"
         >
           <div class="ring-disc" aria-hidden="true" />
-          <svg class="ring" viewBox="0 0 48 48" aria-hidden="true">
-            <circle class="spin-arc" cx="24" cy="24" :r="RING_R" />
-          </svg>
-          <svg class="ring ring-progress" viewBox="0 0 48 48" aria-hidden="true">
-            <circle class="ring-track" cx="24" cy="24" :r="RING_R" />
-            <circle
-              class="ring-value"
-              cx="24"
-              cy="24"
-              :r="RING_R"
-              :style="{
-                strokeDasharray: `${RING_C}`,
-                strokeDashoffset: `${progressOffset}`,
-              }"
-            />
-          </svg>
+          <!-- Continuous spinner (not progress-tied). Clip to circle so WebView never paints a rotating square. -->
+          <div class="ring-spinner" aria-hidden="true" />
           <div class="ring-icon">
             <component :is="icon" v-if="icon" :size="18" :stroke-width="2" />
           </div>
@@ -146,7 +124,6 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   gap: 14px;
 }
 
-/* Perfect circle — never rotate a square SVG (that paints spinning boxes). */
 .ring-wrap {
   position: relative;
   width: 52px;
@@ -163,41 +140,17 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   animation: ring-breathe 1.8s ease-in-out infinite;
 }
-.ring {
+/* Indeterminate “working” spinner — always spins; progress lives on the bar below. */
+.ring-spinner {
+  box-sizing: border-box;
   position: absolute;
   inset: 0;
-  width: 52px;
-  height: 52px;
-  display: block;
-  border: 0;
-  outline: none;
-  overflow: hidden;
+  border-radius: 50%;
+  border: 3px solid color-mix(in oklab, var(--primary) 16%, var(--muted));
+  border-top-color: var(--primary);
+  border-right-color: color-mix(in oklab, var(--primary) 55%, transparent);
+  animation: ring-spin 0.75s linear infinite;
   pointer-events: none;
-}
-.ring-progress {
-  transform: rotate(-90deg);
-}
-.ring-track,
-.ring-value,
-.spin-arc {
-  fill: none;
-  stroke-linecap: round;
-}
-.ring-track {
-  stroke: color-mix(in oklab, var(--primary) 16%, var(--muted));
-  stroke-width: 3;
-}
-.ring-value {
-  stroke: var(--primary);
-  stroke-width: 3.25;
-  transition: stroke-dashoffset 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-/* Indeterminate motion via dashoffset on the arc only — stays circular. */
-.spin-arc {
-  stroke: color-mix(in oklab, var(--primary) 55%, transparent);
-  stroke-width: 2.5;
-  stroke-dasharray: 31.4 94.2; /* ~1/4 of 2πr */
-  animation: spin-dash 1s linear infinite;
 }
 .ring-icon {
   position: absolute;
@@ -329,9 +282,9 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   background: var(--muted);
 }
 
-@keyframes spin-dash {
+@keyframes ring-spin {
   to {
-    stroke-dashoffset: -125.6; /* full circumference */
+    transform: rotate(360deg);
   }
 }
 @keyframes ring-breathe {
@@ -354,9 +307,8 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
 
 @media (prefers-reduced-motion: reduce) {
   .op-stage,
-  .spin-arc,
+  .ring-spinner,
   .ring-disc,
-  .ring-value,
   .bar span {
     animation: none;
     transition: none;
