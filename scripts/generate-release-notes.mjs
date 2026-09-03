@@ -44,6 +44,14 @@ const TYPE_HEADINGS = {
 const SUBJECT_RE =
   /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?(!)?:\s+/i;
 
+export function formatCommitHash(hash, repo) {
+  const sha = String(hash ?? "").trim();
+  if (!sha) return "";
+  const repoSlug = String(repo ?? "").trim();
+  if (!repoSlug) return sha;
+  return `[${sha}](https://github.com/${repoSlug}/commit/${sha})`;
+}
+
 export function classifySubject(subject) {
   const text = String(subject ?? "").trim();
   const match = SUBJECT_RE.exec(text);
@@ -72,7 +80,7 @@ export function renderReleaseNotes({
 
   for (const commit of commits) {
     const classified = classifySubject(commit.subject);
-    const line = `- ${classified.subject} (\`${commit.hash}\`)`;
+    const line = `- ${classified.subject} (${formatCommitHash(commit.hash, repo)})`;
     grouped.get(classified.type)?.push(line);
     if (classified.breaking) breaking.push(line);
   }

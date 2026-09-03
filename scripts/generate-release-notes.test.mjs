@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   classifySubject,
+  formatCommitHash,
   parseGitLog,
   renderReleaseNotes,
 } from "./generate-release-notes.mjs";
@@ -40,4 +41,17 @@ test("renderReleaseNotes groups and lists downloads", () => {
   assert.match(md, /PC Toolkit Pro v3\.0\.1 Setup\.exe/);
   assert.match(md, /PC Toolkit Pro v3\.0\.1\.exe/);
   assert.match(md, /compare\/v3\.0\.0\.\.\.v3\.0\.1/);
+  assert.match(
+    md,
+    /\[aaa1111\]\(https:\/\/github.com\/SSujitX\/pc-toolkit-pro\/commit\/aaa1111\)/
+  );
+  assert.doesNotMatch(md, /`aaa1111`/);
+});
+
+test("formatCommitHash links to the GitHub commit", () => {
+  assert.equal(
+    formatCommitHash("ce98a58", "SSujitX/pc-toolkit-pro"),
+    "[ce98a58](https://github.com/SSujitX/pc-toolkit-pro/commit/ce98a58)"
+  );
+  assert.equal(formatCommitHash("ce98a58", ""), "ce98a58");
 });
