@@ -1,25 +1,48 @@
-name: Release Windows
+name: Release
+run-name: "Release (${{ github.event.inputs.bump || github.ref_name }}) — ${{ github.ref_name }}"
 
-# Tag a release from VERSION:
-#   1. echo 3.0.1 > VERSION && ./scripts/sync-version.sh
-#   2. git commit -am "chore: bump version to 3.0.1"
-#   3. git tag v3.0.1 && git push origin v3.0.1
+# Operator flow (every release):
+#   Actions → Release → Run workflow → bump = current | patch | minor | major
 #
-# Or run manually from Actions → Release Windows → Run workflow.
+# Starts from root VERSION (X.Y.Z). No free-typed semver.
+# The job:
+#   1. Computes next X.Y.Z from VERSION + bump
+#   2. Writes VERSION and syncs package / Cargo / app version files
+#   3. Commits those files onto the branch so later commits keep that version
+#   4. Creates annotated tag vX.Y.Z
+#   5. Builds Windows NSIS setup + portable EXE
+#   6. Publishes GitHub Release with categorized commit notes + assets
+#      Setup:  PC Toolkit Pro vX.Y.Z Setup.exe
+#      Portable: PC Toolkit Pro vX.Y.Z.exe
+#      Updater: latest.json (+ .sig)
+#
+# Local tag push (vX.Y.Z, VERSION already matching) still publishes.
+# Tags pushed by github-actions[bot] do not start a second build.
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag to create/use (e.g. v3.0.1). Leave empty to use VERSION file.'
+      bump:
+        description: Bump from root VERSION. Use current to ship the file as-is.
+        required: true
+        type: choice
+        options:
+          - current
+          - patch
+          - minor
+          - major
+        default: patch
+      prerelease:
+        description: Mark GitHub Release as prerelease
         required: false
-        default: ''
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*.*.*"
 
 concurrency:
-  group: release-windows-${{ github.ref }}
+  group: release-${{ github.repository }}
   cancel-in-progress: false
 
 permissions:
@@ -36,14 +59,136 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
-  release:
+  prepare:
+    name: Bump VERSION + notes
+    if: github.event_name == 'workflow_dispatch' || github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      sha: ${{ steps.sha.outputs.sha }}
+      previous_tag: ${{ steps.ver.outputs.previous_tag }}
+      bump: ${{ steps.ver.outputs.bump }}
+      current: ${{ steps.ver.outputs.current }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Script tests
+        run: node --test scripts/sync-version.test.mjs scripts/generate-release-notes.test.mjs
+
+      - name: Resolve bump from VERSION
+        id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BUMP: ${{ github.event.inputs.bump }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "VERSION must be X.Y.Z (got '$CURRENT')" >&2
+            exit 1
+          fi
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            BUMP="${INPUT_BUMP}"
+            node ./scripts/sync-version.mjs bump "$BUMP"
+            VER="$(tr -d '[:space:]' < VERSION)"
+          else
+            BUMP="current"
+            VER="$CURRENT"
+            if [[ "$REF_NAME" != "v${VER}" ]]; then
+              echo "Tag $REF_NAME does not match VERSION file (v${VER})" >&2
+              exit 1
+            fi
+          fi
+
+          TAG="v${VER}"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] && git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} already exists" >&2
+            exit 1
+          fi
+
+          PREV_TAG="$(git describe --tags --abbrev=0 --exclude "${TAG}" 2>/dev/null || true)"
+          {
+            echo "current=${CURRENT}"
+            echo "version=${VER}"
+            echo "tag=${TAG}"
+            echo "bump=${BUMP}"
+            echo "previous_tag=${PREV_TAG}"
+          } >>"$GITHUB_OUTPUT"
+          echo "bump ${BUMP}: ${CURRENT} -> ${VER} (tag ${TAG}; previous=${PREV_TAG:-none})"
+
+      - name: Commit VERSION onto branch
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          BUMP: ${{ steps.ver.outputs.bump }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION package.json pnpm-lock.yaml \
+            src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock \
+            src-tauri/crates/pctoolkit-core/Cargo.toml \
+            src-tauri/crates/pctoolkit-platform/Cargo.toml \
+            src/lib/models/application-shell.ts
+          if git diff --cached --quiet; then
+            echo "VERSION already at ${VER}; no package commit needed"
+          else
+            git commit -m "chore(release): ${BUMP} VERSION to ${VER}"
+          fi
+          git push origin "HEAD:${BRANCH}"
+          git tag -a "${TAG}" -m "PC Toolkit Pro ${TAG}"
+          git push origin "${TAG}"
+
+      - name: Export release SHA
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+
+      - name: Build categorized release notes
+        run: |
+          set -euo pipefail
+          node ./scripts/generate-release-notes.mjs \
+            --previous-tag "${{ steps.ver.outputs.previous_tag }}" \
+            --tag "${{ steps.ver.outputs.tag }}" \
+            --bump "${{ steps.ver.outputs.bump }}" \
+            --from-version "${{ steps.ver.outputs.current }}" \
+            --version "${{ steps.ver.outputs.version }}" \
+            >"${RUNNER_TEMP}/release-notes.md"
+          echo "---- release notes preview ----"
+          head -n 80 "${RUNNER_TEMP}/release-notes.md"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release-notes.md
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
     name: Build + publish EXE
+    needs: prepare
     runs-on: windows-latest
     timeout-minutes: 90
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 1
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -53,22 +198,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Read VERSION
-        id: ver
-        shell: bash
-        run: |
-          VERSION="$(node ./scripts/sync-version.mjs print)"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            TAG="${{ github.ref_name }}"
-            EXPECTED="v${VERSION}"
-            if [[ "$TAG" != "$EXPECTED" ]]; then
-              echo "Tag $TAG does not match VERSION file ($EXPECTED)" >&2
-              exit 1
-            fi
-          fi
-          echo "Using product version $VERSION"
 
       - name: Check version sync
         run: node ./scripts/sync-version.mjs check
@@ -82,7 +211,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: src-tauri -> target
           shared-key: windows-tauri-release-v2
@@ -106,7 +235,6 @@ jobs:
           }
           $key = $env:TAURI_SIGNING_PRIVATE_KEY.Trim().Replace("`r", "")
           $path = Join-Path $env:RUNNER_TEMP "pctoolkit.key"
-          # UTF-8 no BOM — Out-File -Encoding utf8 adds a BOM and breaks GITHUB_ENV.
           [System.IO.File]::WriteAllText($path, $key)
           Add-Content -Path $env:GITHUB_ENV -Value "TAURI_SIGNING_PRIVATE_KEY_PATH=$path" -Encoding utf8NoBOM
           Write-Host "signing_key_chars=$($key.Length) password_chars=$($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD.Length) path=$path"
@@ -132,8 +260,10 @@ jobs:
         run: sccache --show-stats
 
       - name: Collect artifacts
-        id: artifacts
         shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           $nsis = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe |
             Where-Object { $_.Name -notlike '*.sig' } |
@@ -146,8 +276,7 @@ jobs:
           if (-not $nsis) { throw "NSIS installer not found" }
           if (-not $portable) { throw "Portable exe not found (expected PCToolkitPro.exe)" }
 
-          $version = "${{ steps.ver.outputs.version }}"
-          # Match GitHub release title: "PC Toolkit Pro vX.Y.Z"
+          $version = $env:VERSION
           $setupName = "PC Toolkit Pro v$version Setup.exe"
           $portableName = "PC Toolkit Pro v$version.exe"
           New-Item -ItemType Directory -Force -Path release-out | Out-Null
@@ -161,36 +290,54 @@ jobs:
             $sig = Get-ChildItem src-tauri/target/release/bundle/nsis/*.sig | Select-Object -First 1
           }
           if (-not $sig) {
-            Write-Warning "Updater signature (.sig) not found. Set TAURI_SIGNING_PRIVATE_KEY secrets to publish auto-updates."
-          } else {
-            Copy-Item $sig.FullName "release-out/$setupName.sig"
-            $env:RELEASE_TAG = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "v$version" }
-            node ./scripts/build-updater-latest.mjs `
-              --version $version `
-              --notes "PC Toolkit Pro v$version" `
-              --setup "release-out/$setupName" `
-              --signature "release-out/$setupName.sig" `
-              --out release-out/latest.json
+            throw "Updater signature (.sig) not found. Set TAURI_SIGNING_PRIVATE_KEY secrets."
           }
+          Copy-Item $sig.FullName "release-out/$setupName.sig"
+          node ./scripts/build-updater-latest.mjs `
+            --version $version `
+            --notes "PC Toolkit Pro v$version" `
+            --setup "release-out/$setupName" `
+            --signature "release-out/$setupName.sig" `
+            --out release-out/latest.json
 
+          $sums = Join-Path "release-out" "SHA256SUMS"
+          $lines = @()
+          foreach ($file in @($setupName, $portableName, "latest.json")) {
+            $hash = (Get-FileHash -Algorithm SHA256 (Join-Path "release-out" $file)).Hash.ToLower()
+            $lines += "$hash  $file"
+          }
+          [System.IO.File]::WriteAllLines($sums, $lines)
           Get-ChildItem release-out | Format-Table Name, Length
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: pc-toolkit-pro-${{ steps.ver.outputs.version }}-windows
+          name: pc-toolkit-pro-${{ needs.prepare.outputs.version }}-windows
           path: release-out/*
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create GitHub Release
-        if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
+      - name: Download release notes
+        uses: actions/download-artifact@v8
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.ver.outputs.version) }}
-          name: PC Toolkit Pro v${{ steps.ver.outputs.version }}
-          draft: ${{ github.event_name == 'workflow_dispatch' }}
-          generate_release_notes: true
-          files: release-out/*
+          name: release-notes
+          path: release-notes
+
+      - name: Publish GitHub Release + assets
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: PC Toolkit Pro v${{ needs.prepare.outputs.version }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          draft: false
+          body_path: release-notes/release-notes.md
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          files: |
+            release-out/PC Toolkit Pro v${{ needs.prepare.outputs.version }} Setup.exe
+            release-out/PC Toolkit Pro v${{ needs.prepare.outputs.version }} Setup.exe.sig
+            release-out/PC Toolkit Pro v${{ needs.prepare.outputs.version }}.exe
+            release-out/latest.json
+            release-out/SHA256SUMS
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
