@@ -1,6 +1,6 @@
 [package]
 name = "pc-toolkit-pro"
-version = "3.0.0"
+version = "3.0.1"
 description = "PC Toolkit Pro — Windows system manager"
 authors = ["SSujitX"]
 edition = "2021"
