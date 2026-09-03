@@ -9,22 +9,30 @@ export const useMonitorStore = defineStore('monitor', {
     snapshot: null as MonitorSnapshot | null,
     loading: false,
     timer: null as number | null,
+    /** Monotonic request id — drop out-of-order replies from slow polls. */
+    pollSeq: 0,
+    appliedSeq: 0,
   }),
   actions: {
     async refresh() {
       this.loading = true;
       try {
-        this.snapshot = await MonitorService.snapshot();
+        await this.refreshQuiet();
       } catch (error) {
         useAppStore().reportError(error);
       } finally {
         this.loading = false;
       }
     },
-    /** Quiet refresh for post-optimize / tray — do not flip loading chrome. */
+    /** Quiet refresh for titlebar / post-optimize — do not flip loading chrome. */
     async refreshQuiet() {
+      const seq = ++this.pollSeq;
       try {
-        this.snapshot = await MonitorService.snapshot();
+        const next = await MonitorService.snapshot();
+        // Ignore stale completions so a slow nvidia-era poll cannot pin RAM%.
+        if (seq < this.appliedSeq) return;
+        this.snapshot = next;
+        this.appliedSeq = seq;
       } catch {
         // keep last snapshot
       }
