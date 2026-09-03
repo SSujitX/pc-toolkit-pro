@@ -5,7 +5,7 @@
 //! locations) — not copied from third-party GPL sources. Skip-and-continue on
 //! denied paths; only remove contents under declared roots.
 
-use pctoolkit_platform::empty_recycle_bin;
+use pctoolkit_platform::{empty_recycle_bin, query_recycle_bin};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -1560,9 +1560,10 @@ where
 
             match def.kind {
                 RuleKind::RecycleBin => match empty_recycle_bin() {
-                    Ok(()) => {
+                    Ok(result) => {
+                        freed_bytes += result.released_bytes;
+                        files_removed += result.released_items;
                         log.push("Recycle Bin emptied".into());
-                        files_removed += 1;
                     }
                     Err(e) => log.push(format!("Recycle Bin: {e}")),
                 },
@@ -1634,22 +1635,15 @@ where
 }
 
 fn estimate_recycle_bin() -> (u64, u32, &'static str) {
-    // Best-effort size; empty still offered when inaccessible.
-    let mut bytes = 0u64;
-    let mut count = 0u32;
-    for letter in b'C'..=b'Z' {
-        let root = PathBuf::from(format!(r"{}:\$Recycle.Bin", letter as char));
-        if !root.exists() {
-            continue;
+    // Explorer Shell query for the current user — never walk X:\$Recycle.Bin
+    // (that overcounts other SIDs and follows junctions into huge unrelated trees).
+    match query_recycle_bin() {
+        Ok(info) if info.bytes == 0 && info.item_count == 0 => (0, 0, "clean"),
+        Ok(info) => {
+            let count = info.item_count.min(u32::MAX as u64) as u32;
+            (info.bytes, count.max(1), "found")
         }
-        let (b, c) = measure_tree(&root, &TreeFilters::NONE, &mut |_, _| {}, 8_000);
-        bytes += b;
-        count += c;
-    }
-    if count == 0 {
-        (0, 1, "found")
-    } else {
-        (bytes, count, "found")
+        Err(_) => (0, 0, "notApplicable"),
     }
 }
 
@@ -1742,6 +1736,9 @@ fn measure_tree(
                 break;
             }
             let p = entry.path();
+            if is_reparse_entry(&entry) {
+                continue;
+            }
             let Ok(meta) = entry.metadata() else {
                 continue;
             };
@@ -1783,6 +1780,9 @@ fn clean_tree_contents(
             break;
         }
         let p = entry.path();
+        if is_reparse_entry(&entry) {
+            continue;
+        }
         if p.is_file() {
             if let Ok(meta) = fs::metadata(&p) {
                 let len = meta.len();
@@ -1824,6 +1824,9 @@ fn clean_tree_selective(
                 break;
             }
             let p = entry.path();
+            if is_reparse_entry(&entry) {
+                continue;
+            }
             let Ok(meta) = entry.metadata() else {
                 continue;
             };
@@ -1851,6 +1854,9 @@ fn dir_tree_size(path: &Path) -> std::io::Result<u64> {
     let mut total = 0u64;
     for entry in fs::read_dir(path)? {
         let entry = entry?;
+        if is_reparse_entry(&entry) {
+            continue;
+        }
         let meta = entry.metadata()?;
         if meta.is_file() {
             total += meta.len();
@@ -1859,6 +1865,10 @@ fn dir_tree_size(path: &Path) -> std::io::Result<u64> {
         }
     }
     Ok(total)
+}
+
+fn is_reparse_entry(entry: &fs::DirEntry) -> bool {
+    entry.file_type().map(|t| t.is_symlink()).unwrap_or(true)
 }
 
 #[cfg(test)]
@@ -1928,6 +1938,50 @@ mod tests {
             .unwrap();
         assert_eq!(thumb.max_depth, Some(0));
         assert!(thumb.recommended);
+    }
+
+    #[test]
+    fn recycle_bin_is_present_and_not_recommended() {
+        let recycle = rule_catalog()
+            .into_iter()
+            .find(|r| r.id == "system.recycleBin")
+            .unwrap();
+        assert!(!recycle.recommended);
+        assert!(matches!(recycle.kind, RuleKind::RecycleBin));
+        assert_eq!(recycle.risk, "recoverable");
+    }
+
+    #[test]
+    fn measure_tree_skips_symlinks() {
+        let root = test_dir("symlink-skip");
+        write_file(&root.join("real.bin"), b"hello");
+        let outside = test_dir("symlink-skip-outside");
+        write_file(&outside.join("huge.bin"), &[0u8; 1024]);
+        let link = root.join("link-out");
+        let linked = {
+            #[cfg(windows)]
+            {
+                std::os::windows::fs::symlink_file(&outside.join("huge.bin"), &link).is_ok()
+            }
+            #[cfg(unix)]
+            {
+                std::os::unix::fs::symlink(&outside.join("huge.bin"), &link).is_ok()
+            }
+            #[cfg(not(any(windows, unix)))]
+            {
+                false
+            }
+        };
+        if !linked {
+            let _ = fs::remove_dir_all(&root);
+            let _ = fs::remove_dir_all(&outside);
+            return;
+        }
+        let (bytes, count) = measure_tree(&root, &TreeFilters::NONE, &mut |_, _| {}, 100);
+        assert_eq!(count, 1, "symlink target must not be counted");
+        assert_eq!(bytes, 5);
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
     }
 
     #[test]
