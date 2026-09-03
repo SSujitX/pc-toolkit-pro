@@ -43,6 +43,8 @@ const elevationPromptOpen = computed({
 
 onMounted(() => {
   monitor.startPolling();
+  // Live titlebar RAM% shares Memory Cleaner physical stats (Task Manager / WMC).
+  memory.startStatsPolling();
   void memory.loadElevation();
   // Idle preload secondary pages
   window.setTimeout(() => {
