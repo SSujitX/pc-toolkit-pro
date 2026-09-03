@@ -73,7 +73,7 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 
 - Tray + hide-to-tray until Exit (Python-era behavior). Close / Alt+F4 hides; Exit quits.
 - Tray icon is created at **Rust startup** (stable id `pctoolkit-main-tray`) with a real icon; Vue attaches the menu after mount. Capabilities need `core:tray:default`, `core:menu:default`, and `core:image:default`.
-- Titlebar memory circle is **click-to-optimize** (same Memory Cleaner settings/path as tray clean) and must refresh immediately after optimize. Live RAM % uses the same Task-Manager-consistent load (`GetPerformanceInfo` via `memory_stats()`) as Memory Cleaner / tray and polls about once per second.
+- Titlebar memory circle is **click-to-optimize** (same Memory Cleaner settings/path as tray clean) and must refresh immediately after optimize. Live RAM % uses the same Task-Manager-consistent load (`GetPerformanceInfo` via `memory_stats()`) as Memory Cleaner / tray / WMC / IObit and polls about once per second. Do not spawn `nvidia-smi` on every titlebar poll (late replies can pin a stale higher %).
 - No flashing console when collecting system info.
 - Information load emits staged progress (metrics → hardware → GPU → assemble); UI uses the shared operation workspace spinner (same as Cleaner / Memory).
 - Power schedule: after confirm, show a live countdown with **Cancel Shutdown** (`shutdown /a`); power actions check Windows exit status (no fire-and-forget success).
