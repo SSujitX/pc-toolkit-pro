@@ -79,7 +79,7 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 - Power schedule: after confirm, show a live countdown with **Cancel Shutdown** (`shutdown /a`); power actions check Windows exit status (no fire-and-forget success).
 - App updates use `@tauri-apps/plugin-updater` with signed release artifacts and GitHub `latest.json` — not “open releases URL” as the primary Check for Updates path.
 - Windows NSIS installer uses **`currentUser`** install mode: `%LOCALAPPDATA%\PC Toolkit Pro\` with Start Menu entry + `uninstall.exe` (no admin required to install). Main binary name `PCToolkitPro.exe`.
-- GitHub Release title and download filenames use **`PC Toolkit Pro vX.Y.Z`** (setup: `PC Toolkit Pro vX.Y.Z Setup.exe`, portable: `PC Toolkit Pro vX.Y.Z.exe`).
+- GitHub Release title uses **`PC Toolkit Pro vX.Y.Z`**. Uploaded files keep that display label, but GitHub stores names with spaces as dots (`PC.Toolkit.Pro.vX.Y.Z.Setup.exe`). `latest.json` must use the stored name or the in-app updater 404s.
 - Operator release: **Actions → Release → Run workflow** with bump `current | patch | minor | major` (from root `VERSION`, no free-typed semver). Workflow syncs packages, commits, tags `vX.Y.Z`, builds Windows setup + portable, and publishes categorized commit notes plus `latest.json`.
 
 ## Repository hygiene
