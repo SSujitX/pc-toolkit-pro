@@ -23,7 +23,7 @@ pub use process::{
     close_processes, hide_console, probe_running_processes, ProcessCloseBatchResult,
     ProcessCloseTargetResult, RunningProcessGroup,
 };
-pub use recycle::empty_recycle_bin;
+pub use recycle::{empty_recycle_bin, query_recycle_bin, RecycleBinEmptyResult, RecycleBinInfo};
 pub use system_info::{
     load_system_information, load_system_information_with_progress, SystemInfoProgress,
     SystemInformation,
