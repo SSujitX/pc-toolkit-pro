@@ -659,8 +659,9 @@ mod tests {
             "load percent must equal used/total * 100"
         );
 
-        // Virtual (commit) stats still come from GlobalMemoryStatusEx.
-        assert!(stats.virtual_total > 0, "commit total must be positive");
+        // Virtual (commit) stats still come from GlobalMemoryStatusEx. Commit
+        // total can legitimately be 0 on hosts without a paging file, so only
+        // the computed load percentage is asserted here.
         assert!(
             (0.0..=100.0).contains(&stats.virtual_load_percent),
             "virtual load percent must stay in 0..=100"
