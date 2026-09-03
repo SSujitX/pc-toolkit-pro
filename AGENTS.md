@@ -15,7 +15,7 @@ Active rewrite branch: `feat/tauri-rewrite`. Keep `master` stable for any legacy
 Keep these domain boundaries stable:
 
 - `cleaner`: junk/temp scan, preview, execute, cancel, progress;
-- `deep-cleaner`: deeper category cleanup UI over cleaner capabilities (presentation may combine results; Core ownership stays in cleaner/shared safety);
+- `deep-cleaner`: Deep Cleanup UI (system / application / browser / developer caches) over `cleaner` + `cleaner_deep` Core rules — presentation may combine results; Core ownership stays in cleaner/shared safety (skip-and-continue, no GPL rule copies);
 - `memory`: physical/virtual stats, selectable optimize areas, auto-clean settings, tray-aligned clean;
 - `power`: shutdown / restart / sleep / lock and scheduled shutdown;
 - `monitor`: live titlebar/monitor snapshot (uptime, disk, memory);
