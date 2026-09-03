@@ -32,7 +32,7 @@ const tag = process.env.RELEASE_TAG || `v${version}`;
 
 const setupName = basename(setupPath);
 const signature = readFileSync(signaturePath, 'utf8').trim();
-const url = `https://github.com/${owner}/${repo}/releases/download/${tag}/${setupName}`;
+const url = `https://github.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(setupName)}`;
 
 const payload = {
   version,
