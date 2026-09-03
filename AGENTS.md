@@ -67,6 +67,7 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 
 - Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk).
 - Memory Cleaner: selectable areas, live physical/virtual stats, auto-clean from **5 min** upward + free-RAM threshold; tray uses the same settings. Real Win32 APIs; honest skip/log when not elevated; **no PowerShell fake**; settings in `%LOCALAPPDATA%\PC Toolkit Pro\`.
+- Memory Cleaner offers **Restart as administrator** (UAC `runas` relaunch) so Optimize / tray / auto-clean can use privileged areas for that session. The app itself stays `asInvoker` (not always-on admin).
 
 ### Tray / Information / Updates / Power / Shell
 
@@ -77,6 +78,8 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 - Information load emits staged progress (metrics → hardware → GPU → assemble); UI uses the shared operation workspace progress ring (same as Cleaner / Memory).
 - Power schedule: after confirm, show a live countdown with **Cancel Shutdown** (`shutdown /a`); power actions check Windows exit status (no fire-and-forget success).
 - App updates use `@tauri-apps/plugin-updater` with signed release artifacts and GitHub `latest.json` — not “open releases URL” as the primary Check for Updates path.
+- Windows NSIS installer uses **`currentUser`** install mode: `%LOCALAPPDATA%\PC Toolkit Pro\` with Start Menu entry + `uninstall.exe` (no admin required to install). Main binary name `PCToolkitPro.exe`.
+- GitHub Release title and download filenames use **`PC Toolkit Pro vX.Y.Z`** (setup: `PC Toolkit Pro vX.Y.Z Setup.exe`, portable: `PC Toolkit Pro vX.Y.Z.exe`).
 
 ## Repository hygiene
 
