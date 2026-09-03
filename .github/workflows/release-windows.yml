@@ -84,7 +84,7 @@ jobs:
           node-version: 24
 
       - name: Script tests
-        run: node --test scripts/sync-version.test.mjs scripts/generate-release-notes.test.mjs
+        run: node --test scripts/sync-version.test.mjs scripts/generate-release-notes.test.mjs scripts/build-updater-latest.test.mjs
 
       - name: Resolve bump from VERSION
         id: ver
@@ -293,6 +293,7 @@ jobs:
             throw "Updater signature (.sig) not found. Set TAURI_SIGNING_PRIVATE_KEY secrets."
           }
           Copy-Item $sig.FullName "release-out/$setupName.sig"
+          # latest.json URL must use GitHub's stored asset name (spaces → dots).
           node ./scripts/build-updater-latest.mjs `
             --version $version `
             --notes "PC Toolkit Pro v$version" `
