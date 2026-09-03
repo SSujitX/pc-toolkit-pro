@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { nextVersion, parseLockPackageVersion, parseSemver } from "./sync-version.mjs";
 
@@ -28,4 +29,10 @@ test("parseLockPackageVersion accepts LF and CRLF", () => {
   const crlf = 'name = "pc-toolkit-pro"\r\nversion = "3.0.0"\r\n';
   assert.equal(parseLockPackageVersion(lf, "pc-toolkit-pro"), "3.0.0");
   assert.equal(parseLockPackageVersion(crlf, "pc-toolkit-pro"), "3.0.0");
+});
+
+test("bump current is a no-op when manifests already match", () => {
+  execFileSync(process.execPath, ["./scripts/sync-version.mjs", "bump", "current"], {
+    stdio: "pipe",
+  });
 });

@@ -76,6 +76,9 @@ function readVersionFile() {
 }
 
 function writeVersionFile(version) {
+  if (fs.existsSync("VERSION") && parseSemver(fs.readFileSync("VERSION", "utf8")).text === version) {
+    return;
+  }
   fs.writeFileSync("VERSION", `${version}\n`);
 }
 
@@ -92,36 +95,47 @@ function readManifest(path, kind) {
   return m[1];
 }
 
-function writeManifest(path, kind, version) {
-  if (kind === "json") {
-    const data = JSON.parse(fs.readFileSync(path, "utf8"));
-    data.version = version;
-    fs.writeFileSync(path, JSON.stringify(data, null, 2) + "\n");
+function writeManifest(filePath, kind, version) {
+  if (readManifest(filePath, kind) === version) {
     return;
   }
-  let text = fs.readFileSync(path, "utf8");
+  if (kind === "json") {
+    const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    data.version = version;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+    return;
+  }
+  let text = fs.readFileSync(filePath, "utf8");
   let next;
   if (kind === "cargo") {
-    next = text.replace(/^(\[package\][\s\S]*?^version\s*=\s*")[^"]+/m, `$1${version}`);
+    next = text.replace(
+      /^(\[package\][\s\S]*?^version\s*=\s*")[^"]+/m,
+      `$1${version}`
+    );
   } else {
     next = text.replace(
       /(export\s+const\s+APP_VERSION\s*=\s*['"])([^'"]+)(['"])/,
       `$1${version}$3`
     );
   }
-  if (next === text) throw new Error(`Failed to update ${path}`);
-  fs.writeFileSync(path, next);
+  if (next === text) throw new Error(`Failed to update ${filePath}`);
+  fs.writeFileSync(filePath, next);
 }
 
-function writeCargoLock(path, version) {
-  let text = fs.readFileSync(path, "utf8");
+function writeCargoLock(filePath, version) {
+  let text = fs.readFileSync(filePath, "utf8");
+  const original = text;
   for (const name of LOCK_PACKAGES) {
+    const current = parseLockPackageVersion(text, name);
+    if (current === version) continue;
     const re = new RegExp(`(name = "${name}"\\r?\\nversion = ")[^"]+`, "g");
     const next = text.replace(re, `$1${version}`);
-    if (next === text) throw new Error(`Failed to update ${name} in ${path}`);
+    if (next === text) throw new Error(`Failed to update ${name} in ${filePath}`);
     text = next;
   }
-  fs.writeFileSync(path, text);
+  if (text !== original) {
+    fs.writeFileSync(filePath, text);
+  }
 }
 
 function readCargoLock(path) {
