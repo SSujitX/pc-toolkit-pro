@@ -10,7 +10,7 @@ PC Toolkit Pro is a **Windows-first** Tauri 2 desktop toolkit for cleanup, memor
 
 App name is **PC Toolkit Pro** only. Logo source of truth is root `pctoolkitpro.png` (copied/generated into `src/assets/brand/logo.png`, `public/icon.*`, and `src-tauri/icons/*` via `pnpm exec tauri icon pctoolkitpro.png`). Never ship another product’s name, logo, copy, or GPL source/assets.
 
-Active rewrite branch: `feat/tauri-rewrite`. Keep `master` stable for any legacy Python release until merge after solid testing.
+Default branch is `master` (Tauri 2 + Vue 3 + Rust). Do not revive the retired Python/PyQt tree here.
 
 Keep these domain boundaries stable:
 
