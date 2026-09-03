@@ -2,7 +2,9 @@
 
 **Windows PC cleaner · RAM / memory optimizer · junk file cleaner · system monitor · power tools**
 
-![PC Toolkit Pro — Windows system cleaner and memory optimizer logo](src/assets/brand/logo.png)
+<p align="center">
+  <img src="src/assets/brand/logo.png" alt="PC Toolkit Pro — Windows system cleaner and memory optimizer logo" width="128" />
+</p>
 
 **Free Windows system utility** to clean junk files, free RAM, monitor CPU/disk/GPU, control power options, and manage your PC from a soft modern desktop app + system tray.
 
