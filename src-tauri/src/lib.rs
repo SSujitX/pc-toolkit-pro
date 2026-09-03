@@ -21,6 +21,8 @@ pub fn run() {
             commands::quick_actions::open_quick_action,
             commands::cleaner::scan_cleanup_candidates,
             commands::cleaner::execute_cleanup,
+            commands::cleaner::scan_deep_cleanup,
+            commands::cleaner::execute_deep_cleanup_command,
             commands::cleaner::cancel_cleanup,
             commands::power::execute_power_action,
             commands::power::schedule_shutdown,
