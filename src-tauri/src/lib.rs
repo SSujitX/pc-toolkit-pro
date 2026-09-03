@@ -33,6 +33,8 @@ pub fn run() {
             commands::memory::set_memory_cleaner_settings,
             commands::memory::optimize_memory,
             commands::memory::cancel_memory_optimize,
+            commands::memory::get_elevation_status,
+            commands::memory::restart_as_administrator,
             commands::settings::open_app_data_folder,
             commands::window::show_main_window,
             commands::window::minimize_main_window,
