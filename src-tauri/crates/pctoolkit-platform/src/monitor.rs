@@ -1,5 +1,4 @@
 use serde::Serialize;
-use std::time::Duration;
 use sysinfo::{Disks, System};
 
 use crate::{PlatformError, PlatformResult};
@@ -31,18 +30,30 @@ pub struct OsLabel {
 
 pub fn sample_monitor() -> PlatformResult<MonitorSample> {
     let mut sys = System::new();
+    // Single CPU refresh — avoid sleeping on every titlebar/tray poll (live updates).
+    // First sample after process start may read ~0%; later polls stabilize.
     sys.refresh_cpu_usage();
-    std::thread::sleep(Duration::from_millis(200));
-    sys.refresh_cpu_usage();
-    sys.refresh_memory();
-
     let cpu = sys.global_cpu_usage();
-    let memory_total = sys.total_memory();
-    let memory_used = sys.used_memory();
-    let memory_percent = if memory_total == 0 {
-        0.0
-    } else {
-        (memory_used as f64 / memory_total as f64 * 100.0) as f32
+
+    // Prefer GlobalMemoryStatusEx (same dwMemoryLoad as Memory Cleaner / WMC).
+    // sysinfo used/total can disagree with Task Manager and the Memory page.
+    let (memory_total, memory_used, memory_percent) = match crate::memory::memory_stats() {
+        Ok(stats) => (
+            stats.physical_total,
+            stats.physical_used,
+            stats.physical_load_percent,
+        ),
+        Err(_) => {
+            sys.refresh_memory();
+            let memory_total = sys.total_memory();
+            let memory_used = sys.used_memory();
+            let memory_percent = if memory_total == 0 {
+                0.0
+            } else {
+                (memory_used as f64 / memory_total as f64 * 100.0) as f32
+            };
+            (memory_total, memory_used, memory_percent)
+        }
     };
 
     let disks = Disks::new_with_refreshed_list();
