@@ -19,6 +19,16 @@ import { fileURLToPath } from "node:url";
 const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)$/;
 const LOCK_PACKAGES = ["pc-toolkit-pro", "pctoolkit-core", "pctoolkit-platform"];
 
+function lockVersionRe(name, capture = true) {
+  const version = capture ? '"([^"]+)"' : '"[^"]+"';
+  return new RegExp(`(name = "${name}"\\r?\\nversion = )${version}`);
+}
+
+export function parseLockPackageVersion(text, name) {
+  const m = String(text).match(lockVersionRe(name, true));
+  return m ? m[2] : null;
+}
+
 const MANIFESTS = {
   "package.json": "json",
   "src-tauri/tauri.conf.json": "json",
@@ -106,7 +116,7 @@ function writeManifest(path, kind, version) {
 function writeCargoLock(path, version) {
   let text = fs.readFileSync(path, "utf8");
   for (const name of LOCK_PACKAGES) {
-    const re = new RegExp(`(name = "${name}"\\nversion = ")[^"]+`, "g");
+    const re = new RegExp(`(name = "${name}"\\r?\\nversion = ")[^"]+`, "g");
     const next = text.replace(re, `$1${version}`);
     if (next === text) throw new Error(`Failed to update ${name} in ${path}`);
     text = next;
@@ -118,10 +128,9 @@ function readCargoLock(path) {
   const text = fs.readFileSync(path, "utf8");
   const found = {};
   for (const name of LOCK_PACKAGES) {
-    const re = new RegExp(`name = "${name}"\\nversion = "([^"]+)"`);
-    const m = text.match(re);
-    if (!m) throw new Error(`no ${name} version in ${path}`);
-    found[name] = m[1];
+    const got = parseLockPackageVersion(text, name);
+    if (!got) throw new Error(`no ${name} version in ${path}`);
+    found[name] = got;
   }
   return found;
 }

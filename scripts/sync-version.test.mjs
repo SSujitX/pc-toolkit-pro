@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nextVersion, parseSemver } from "./sync-version.mjs";
+import { nextVersion, parseLockPackageVersion, parseSemver } from "./sync-version.mjs";
 
 test("parseSemver accepts X.Y.Z", () => {
   assert.deepEqual(parseSemver("3.0.0"), {
@@ -21,4 +21,11 @@ test("nextVersion bump kinds", () => {
   assert.equal(nextVersion("1.2.3", "patch"), "1.2.4");
   assert.equal(nextVersion("1.2.3", "minor"), "1.3.0");
   assert.equal(nextVersion("1.2.3", "major"), "2.0.0");
+});
+
+test("parseLockPackageVersion accepts LF and CRLF", () => {
+  const lf = 'name = "pc-toolkit-pro"\nversion = "3.0.0"\n';
+  const crlf = 'name = "pc-toolkit-pro"\r\nversion = "3.0.0"\r\n';
+  assert.equal(parseLockPackageVersion(lf, "pc-toolkit-pro"), "3.0.0");
+  assert.equal(parseLockPackageVersion(crlf, "pc-toolkit-pro"), "3.0.0");
 });
