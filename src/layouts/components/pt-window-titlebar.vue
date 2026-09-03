@@ -38,10 +38,7 @@ async function close() {
 /** Same path as tray Clean Memory — uses current Memory Cleaner area settings. */
 async function optimizeFromGauge() {
   if (optimizing.value) return;
-  if (!memory.settingsLoaded) {
-    await memory.loadSettings();
-  }
-  await memory.run('tray');
+  await memory.requestOptimize('tray');
 }
 </script>
 
