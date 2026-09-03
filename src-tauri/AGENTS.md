@@ -34,7 +34,7 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 - Default cleaner scan must work **without admin**. Denied paths skip-and-continue; do not fail the whole scan for one inaccessible folder.
 - Deep Cleanup (`cleaner_deep::rule_catalog`) uses original Windows cache paths with optional filename/extension/age/depth filters; Smart = recommended only.
 - Destructive flows preserve preview/scan results, explicit user intent, progress, cancel, and honest result counts.
-- Empty recycle bin and similar privileged/special operations must report failure clearly rather than pretending success.
+- Empty recycle bin and similar privileged/special operations must report failure clearly rather than pretending success. Recycle Bin **size** is `SHQueryRecycleBinW` (Explorer, current user). Emptying is `SHEmptyRecycleBinW`. Do **not** walk `X:\\$Recycle.Bin` (overcounts other SIDs and follows junctions).
 - Missing permission, locked files, and platform uncertainty must fail closed or skip with typed reasons.
 
 ## Memory cleaner
