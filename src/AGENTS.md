@@ -38,6 +38,7 @@ Current Stores: `app-store` (shell/theme/navigation), `cleaner-store`, `deep-cle
 - Long-running operations belong in Stores that call services; pages stay presentational.
 - Tray (`tray-service.ts`) must reuse Memory Cleaner settings and the same optimize path as the Memory page — do not fork “tray-only” clean logic. Prefer attaching the menu to the Rust-created tray id rather than creating a second icon without a fallback icon.
 - Titlebar memory circle click runs Memory Cleaner optimize (`reason: tray`) and the monitor snapshot must refresh quietly afterward so the gauge matches page stats.
+- Memory Cleaner shows **Restart as administrator** when not elevated (`get_elevation_status` / `restart_as_administrator`); keep honest skip messaging when the user stays unelevated.
 - Long operations (Cleaner, Deep Cleaner, Memory, Information) share `PtOperationWorkspace` with a **circular** progress ring (not a rounded square frame).
 - Updater flow lives in `app-update-service` + `app-update-store`. About UI shows checking / up-to-date / available / download progress / install / restart states. Do not regress Check for Updates to only opening the GitHub releases URL.
 - Settings **Open Folder** goes through `SettingsApi.openAppDataFolder` → `open_app_data_folder` (not frontend `openPath`).
