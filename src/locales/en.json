@@ -163,7 +163,7 @@
     "diskCleanup": "Windows Disk Cleanup",
     "freeMemory": "Free Memory",
     "tempFilesDetail": "User temporary folders, Prefetch, and accessible system temp. Denied folders are skipped.",
-    "recycleBinDetail": "Empty the Recycle Bin for all drives.",
+    "recycleBinDetail": "Empty the Recycle Bin as Explorer shows it for your account.",
     "diskCleanupDetail": "Launch Windows Disk Cleanup. Windows may ask for elevation.",
     "freeMemoryDetail": "Optimize selected memory areas using the Memory Cleaner engine and report measured free RAM change.",
     "riskLow": "Low risk",
@@ -231,7 +231,7 @@
     },
     "rules": {
       "recycleBin": "Recycle Bin",
-      "recycleBinDetail": "Empty the Recycle Bin for accessible drives.",
+      "recycleBinDetail": "Empty the Recycle Bin as Explorer shows it for your account.",
       "thumbnailCache": "Thumbnail and icon cache",
       "thumbnailCacheDetail": "Windows regenerates previews and icons as folders are opened again.",
       "internetTemp": "Internet temporary files",
