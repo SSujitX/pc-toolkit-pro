@@ -6,7 +6,7 @@
 
 **Free Windows system utility** to clean junk files, free RAM, monitor CPU/disk/GPU, control power options, and manage your PC from a soft modern desktop app + system tray.
 
-![Latest release](https://img.shields.io/github/v/release/SSujitX/pc-toolkit-pro?style=for-the-badge&label=Release&color=0ea5e9)![MIT License](https://img.shields.io/github/license/SSujitX/pc-toolkit-pro?style=for-the-badge&color=22c55e)![Windows build status](https://img.shields.io/github/actions/workflow/status/SSujitX/pc-toolkit-pro/tauri-build.yml?branch=feat%2Ftauri-rewrite&style=for-the-badge&label=Windows%20Build)![GitHub stars](https://img.shields.io/github/stars/SSujitX/pc-toolkit-pro?style=for-the-badge&color=f59e0b)
+![Latest release](https://img.shields.io/github/v/release/SSujitX/pc-toolkit-pro?style=for-the-badge&label=Release&color=0ea5e9)![MIT License](https://img.shields.io/github/license/SSujitX/pc-toolkit-pro?style=for-the-badge&color=22c55e)![Windows build status](https://img.shields.io/github/actions/workflow/status/SSujitX/pc-toolkit-pro/tauri-build.yml?branch=master&style=for-the-badge&label=Windows%20Build)![GitHub stars](https://img.shields.io/github/stars/SSujitX/pc-toolkit-pro?style=for-the-badge&color=f59e0b)
 
 ![Windows 10 and Windows 11](https://img.shields.io/badge/Platform-Windows_10%2F11-0078D6?style=flat-square&logo=windows&logoColor=white)![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?style=flat-square&logo=tauri&logoColor=black)![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)![Rust](https://img.shields.io/badge/Rust-stable-DEA584?style=flat-square&logo=rust&logoColor=black)![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)![Tailwind CSS 4](https://img.shields.io/badge/UI-Tailwind_CSS_4-38BDF8?style=flat-square&logo=tailwindcss&logoColor=white)![Download from GitHub Releases](https://img.shields.io/badge/Downloads-GitHub_Releases-181717?style=flat-square&logo=github)
 
@@ -116,15 +116,6 @@ pnpm tauri:build
 
 
 
-## Branch note
-
-Active Tauri rewrite: `feat/tauri-rewrite`.  
-Legacy PyQt docs/release notes on `master` stay until this branch is merged and published as the mainline Windows build.
-
----
-
-
-
 ## License
 
 [MIT](LICENSE) © PC Toolkit Pro / [SSujitX](https://github.com/SSujitX)
@@ -156,4 +147,4 @@ PC Toolkit Pro — Windows junk cleaner, RAM memory optimizer, system monitor, a
 
 *PC Toolkit Pro - Empowering Windows Users Since 2025*
 
-[⬆️ Back to Top](#-pc-toolkit-pro---advanced-windows-system-manager)
+[⬆️ Back to Top](#pc-toolkit-pro)
