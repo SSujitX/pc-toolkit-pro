@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useAppStore } from '@/stores/app-store';
+import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { useMonitorStore } from '@/stores/monitor-store';
 import { PAGE_IDS, type PageId } from '@/lib/models/application-shell';
 import PtSidebar from './components/pt-sidebar.vue';
 import PtWindowTitlebar from './components/pt-window-titlebar.vue';
+import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
 import MonitorPage from '@/pages/monitor/index.vue';
 
 const CleanerPage = defineAsyncComponent(() => import('@/pages/cleaner/index.vue'));
@@ -15,8 +18,10 @@ const InformationPage = defineAsyncComponent(() => import('@/pages/information/i
 const HistoryPage = defineAsyncComponent(() => import('@/pages/history/index.vue'));
 const SettingsPage = defineAsyncComponent(() => import('@/pages/settings/index.vue'));
 
+const { t } = useI18n();
 const app = useAppStore();
 const monitor = useMonitorStore();
+const memory = useMemoryCleanerStore();
 
 const pageMap: Partial<Record<PageId, unknown>> = {
   [PAGE_IDS.monitor]: MonitorPage,
@@ -31,8 +36,14 @@ const pageMap: Partial<Record<PageId, unknown>> = {
 
 const current = computed(() => pageMap[app.currentPage] ?? MonitorPage);
 
+const elevationPromptOpen = computed({
+  get: () => memory.elevationPromptOpen,
+  set: (open: boolean) => memory.setElevationPromptOpen(open),
+});
+
 onMounted(() => {
   monitor.startPolling();
+  void memory.loadElevation();
   // Idle preload secondary pages
   window.setTimeout(() => {
     void import('@/pages/cleaner/index.vue');
@@ -76,6 +87,16 @@ watch(
       <PtWindowTitlebar />
       <component :is="current" />
     </main>
+
+    <PtConfirmDialog
+      v-model:open="elevationPromptOpen"
+      :title="t('memoryCleaner.elevateTitle')"
+      :message="t('memoryCleaner.elevateBody')"
+      :confirm-text="t('memoryCleaner.elevateConfirm')"
+      :cancel-text="t('memoryCleaner.elevateContinue')"
+      @confirm="memory.confirmElevationRestart()"
+      @cancel="memory.declineElevationContinue()"
+    />
   </div>
 </template>
 
