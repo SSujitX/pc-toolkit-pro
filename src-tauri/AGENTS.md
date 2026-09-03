@@ -9,7 +9,7 @@ This file applies only to `src-tauri/` and inherits the repository-wide rules in
 - `src/` (under `src-tauri`): thin Tauri adapter. Commands validate transport input, call Core, translate typed errors, and publish events.
 - Plugins (`tauri-plugin-*`): isolated integration only (opener, process, single-instance, updater, tray via Tauri features). Register plugin init, capabilities, and frontend bindings in the same change. Tray icon itself is bootstrapped in `lib.rs` (`pctoolkit-main-tray`); frontend sets the menu.
 
-Core modules today: `cleaner`, `cleaner_deep` (Deep Cleanup rule catalog/scan/execute), `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process`, `gpu`, and related helpers. Adapter commands also include `settings::open_app_data_folder` (shell helper, not a new Core domain). Deep Cleanup commands: `scan_deep_cleanup`, `execute_deep_cleanup_command`, progress event `deep-cleanup-progress`; cancel shares `cancel_cleanup`.
+Core modules today: `cleaner`, `cleaner_deep` (Deep Cleanup Rust rule catalog/scan/execute — expand with original Windows cache paths only; never import GPL TOML from inspiration trees), `memory`, `power`, `monitor`, `system_info`, `history`, `shared`. Platform modules include `memory`, `monitor`, `power`, `system_info`, `recycle`, `launch`, `process` (probe/close allowlisted images for Deep Cleanup), `gpu`, and related helpers. Adapter commands also include `settings::open_app_data_folder` (shell helper, not a new Core domain). Deep Cleanup commands: `scan_deep_cleanup`, `execute_deep_cleanup_command`, `probe_running_processes_command`, `close_running_processes_command`, progress event `deep-cleanup-progress`; cancel shares `cancel_cleanup`. Catalog waves: Wave 1 = GPU/browser/app/dev caches + stale downloads; Wave 2 = Update download + Windows.old (honest elevation), Android/editor caches, Docker Desktop UI cache; Wave 3 = project artifacts / Docker prune / AI (see `docs/superpowers/specs/2026-09-03-deep-cleaner-catalog-parity-design.md`).
 
 Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, memory, power, and history as separate implementations that collaborate through typed requests/results.
 
@@ -32,6 +32,7 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 ## Cleaner safety
 
 - Default cleaner scan must work **without admin**. Denied paths skip-and-continue; do not fail the whole scan for one inaccessible folder.
+- Deep Cleanup (`cleaner_deep::rule_catalog`) uses original Windows cache paths with optional filename/extension/age/depth filters; Smart = recommended only.
 - Destructive flows preserve preview/scan results, explicit user intent, progress, cancel, and honest result counts.
 - Empty recycle bin and similar privileged/special operations must report failure clearly rather than pretending success.
 - Missing permission, locked files, and platform uncertainty must fail closed or skip with typed reasons.
