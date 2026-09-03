@@ -41,6 +41,8 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 - Stats and optimize areas use real Win32 / NT APIs in `pctoolkit-platform` (for example `GlobalMemoryStatusEx`, `NtSetSystemInformation` and related calls).
 - Core owns settings persistence, auto-interval steps (from **5 minutes** upward), free-RAM threshold / cooldown policy, history writes, and orchestration of `optimize_memory`.
 - When elevation is missing, skip or fail **per area** with honest status — never fake success via PowerShell or empty stubs.
+- Memory Cleaner UI can call `restart_as_administrator` (`relaunch_self_elevated` / `runas`) then exit so the elevated instance takes the single-instance lock. Do not set the EXE to `requireAdministrator`; keep `asInvoker` in `windows/app.manifest`.
+- Commands: `get_elevation_status`, `restart_as_administrator` alongside stats/settings/optimize/cancel.
 - Cleaner `freeMemory` (if exposed) must wire through the same memory engine so tray, page, and cleaner stay consistent.
 - Auto-clean from tray and UI must share the same settings file and optimize entry point.
 
@@ -67,6 +69,8 @@ Do not create a giant `ToolkitService` that owns every domain. Keep cleaner, mem
 - App startup must not perform long scans or blocking filesystem work before the first window is shown. Tray icon bootstrap is allowed at setup (cheap); full menus attach from Vue after mount.
 - Window close on `main` hides to tray; Exit from tray quits. Preserve single-instance focus behavior.
 - Updater: `createUpdaterArtifacts` + pubkey/endpoints in `tauri.conf.json`; CI signs with `TAURI_SIGNING_PRIVATE_KEY` secrets and publishes `latest.json`. Write the secret to a temp file, then set `TAURI_SIGNING_PRIVATE_KEY` from that file in the build step (avoid `Out-File` UTF-8 BOM into `GITHUB_ENV`). Never commit private keys under `.tauri/`.
+- NSIS: `bundle.windows.nsis.installMode` is **`currentUser`** (install under `%LOCALAPPDATA%\PC Toolkit Pro\`, Start Menu + uninstall, no admin for install). `mainBinaryName` is `PCToolkitPro`.
+- Release publish renames artifacts to **`PC Toolkit Pro v{version} Setup.exe`** / **`PC Toolkit Pro v{version}.exe`** (same scheme as the GitHub Release title). Updater `latest.json` URL must use that setup filename.
 - `tauri` Cargo features for tray icons include `tray-icon`, `image-png`, and `image-ico` when embedding/loading tray images.
 
 ## Blocking work and cancel
