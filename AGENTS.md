@@ -65,7 +65,7 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 
 ### Cleaner / Memory
 
-- Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk).
+- Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk). Recycle Bin size matches Explorer (`SHQueryRecycleBinW`); never walk `$Recycle.Bin`.
 - Memory Cleaner: selectable areas, live physical/virtual stats, auto-clean from **5 min** upward + free-RAM threshold; tray uses the same settings. Real Win32 APIs; honest skip/log when not elevated; **no PowerShell fake**; settings in `%LOCALAPPDATA%\PC Toolkit Pro\`.
 - Optimize / titlebar circle prompts **Restart as administrator** only when needed; declining continues with honest skips. No always-on admin banner. Tray and auto-clean do not UAC-nag.
 
