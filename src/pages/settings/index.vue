@@ -28,7 +28,7 @@ import { useAppUpdateStore } from '@/stores/app-update-store';
 import appLogo from '@/assets/brand/logo.png';
 
 const GITHUB_URL = 'https://github.com/SSujitX/pc-toolkit-pro';
-const LICENSE_URL = 'https://github.com/SSujitX/pc-toolkit-pro/blob/feat/tauri-rewrite/LICENSE';
+const LICENSE_URL = 'https://github.com/SSujitX/pc-toolkit-pro/blob/master/LICENSE';
 const DEVELOPER_URL = 'https://github.com/SSujitX';
 const COPYRIGHT_YEAR = 2025;
 
