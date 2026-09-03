@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -119,4 +119,60 @@ fn elevate(program: &str) -> PlatformResult<()> {
     cmd.spawn()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
     Ok(())
+}
+
+/// Prompt UAC and start a new elevated copy of this executable.
+/// On success the caller must exit quickly so the single-instance lock is released
+/// before the elevated process finishes startup.
+pub fn relaunch_self_elevated() -> PlatformResult<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+
+        use windows::core::PCWSTR;
+        use windows::Win32::Foundation::{CloseHandle, ERROR_CANCELLED, GetLastError};
+        use windows::Win32::UI::Shell::{
+            ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
+        };
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+        let exe = std::env::current_exe()
+            .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
+        if !exe.is_file() {
+            return Err(PlatformError::OperationFailed(
+                "application executable is missing".into(),
+            ));
+        }
+
+        let mut file: Vec<u16> = exe.as_os_str().encode_wide().chain(Some(0)).collect();
+        let mut verb: Vec<u16> = OsStr::new("runas").encode_wide().chain(Some(0)).collect();
+
+        let mut info = SHELLEXECUTEINFOW {
+            cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+            fMask: SEE_MASK_NOCLOSEPROCESS,
+            lpVerb: PCWSTR(verb.as_mut_ptr()),
+            lpFile: PCWSTR(file.as_mut_ptr()),
+            nShow: SW_SHOWNORMAL.0,
+            ..Default::default()
+        };
+
+        if unsafe { ShellExecuteExW(&mut info) }.is_err() {
+            let code = unsafe { GetLastError() };
+            if code == ERROR_CANCELLED {
+                return Err(PlatformError::OperationFailed("elevationCancelled".into()));
+            }
+            return Err(PlatformError::OperationFailed(format!(
+                "elevationFailed:{code:?}"
+            )));
+        }
+
+        if !info.hProcess.is_invalid() {
+            let _ = unsafe { CloseHandle(info.hProcess) };
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        Err(PlatformError::Unsupported)
+    }
 }
