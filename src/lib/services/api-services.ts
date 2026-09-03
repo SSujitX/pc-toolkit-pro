@@ -241,6 +241,14 @@ export class MemoryCleanerService {
   static cancel(): Promise<void> {
     return invoke('cancel_memory_optimize');
   }
+
+  static getElevationStatus(): Promise<{ elevated: boolean }> {
+    return invoke('get_elevation_status');
+  }
+
+  static restartAsAdministrator(): Promise<void> {
+    return invoke('restart_as_administrator');
+  }
 }
 
 export class SettingsApi {
