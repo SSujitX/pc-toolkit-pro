@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use sysinfo::{Disks, System};
 
 use crate::{PlatformError, PlatformResult};
@@ -10,6 +11,30 @@ use crate::{PlatformError, PlatformResult};
 fn shared_system() -> &'static Mutex<System> {
     static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();
     SYSTEM.get_or_init(|| Mutex::new(System::new()))
+}
+
+/// nvidia-smi is slow; running it on every 1s titlebar poll lets late replies
+/// overwrite fresher RAM% with stale values. Cache and refresh occasionally.
+fn cached_gpu_sample() -> Option<crate::gpu::GpuSample> {
+    struct GpuCache {
+        at: Instant,
+        sample: Option<crate::gpu::GpuSample>,
+    }
+    static CACHE: OnceLock<Mutex<GpuCache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        Mutex::new(GpuCache {
+            at: Instant::now()
+                .checked_sub(Duration::from_secs(60))
+                .unwrap_or_else(Instant::now),
+            sample: None,
+        })
+    });
+    let mut guard = cache.lock().unwrap_or_else(|p| p.into_inner());
+    if guard.at.elapsed() >= Duration::from_secs(5) {
+        guard.sample = crate::gpu::sample_nvidia().ok();
+        guard.at = Instant::now();
+    }
+    guard.sample.clone()
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -38,8 +63,6 @@ pub struct OsLabel {
 }
 
 pub fn sample_monitor() -> PlatformResult<MonitorSample> {
-    // Single CPU refresh — avoid sleeping on every titlebar/tray poll (live updates).
-    // First sample after process start may read ~0%; later polls stabilize.
     let cpu = {
         let mut sys = shared_system()
             .lock()
@@ -48,9 +71,7 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
         sys.global_cpu_usage()
     };
 
-    // Same Win32 source as the Memory page (Task Manager-consistent load), so
-    // titlebar/tray gauges match the page and system tools. sysinfo used/total
-    // can disagree with Task Manager; it is only a rare failure fallback.
+    // Same Win32 source as the Memory page (Task Manager / WMC / IObit semantics).
     let (memory_total, memory_used, memory_percent) = match crate::memory::memory_stats() {
         Ok(stats) => (
             stats.physical_total,
@@ -58,7 +79,6 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
             stats.physical_load_percent,
         ),
         Err(_) => {
-            // Rare fallback: only if the Win32 stats call fails entirely.
             let mut sys = shared_system()
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -100,7 +120,7 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
         System::os_version().unwrap_or_default()
     );
 
-    let gpu = crate::gpu::sample_nvidia().ok();
+    let gpu = cached_gpu_sample();
     Ok(MonitorSample {
         cpu,
         memory_percent,
