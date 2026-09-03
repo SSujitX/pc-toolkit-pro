@@ -66,7 +66,7 @@ const displaySource = computed(() => {
           :aria-label="status"
         >
           <div class="ring-disc" aria-hidden="true" />
-          <!-- Continuous spinner (not progress-tied). Clip to circle so WebView never paints a rotating square. -->
+          <!-- Circular working spinner (not progress-tied). Progress lives on the bar below. -->
           <div class="ring-spinner" aria-hidden="true" />
           <div class="ring-icon">
             <component :is="icon" v-if="icon" :size="18" :stroke-width="2" />
@@ -149,8 +149,16 @@ const displaySource = computed(() => {
   height: 52px;
   flex: none;
   border-radius: 50%;
-  overflow: hidden;
   isolation: isolate;
+}
+.ring-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 50%;
+  border: 3px solid color-mix(in oklab, var(--primary) 16%, var(--muted));
+  pointer-events: none;
 }
 .ring-disc {
   position: absolute;
@@ -159,21 +167,29 @@ const displaySource = computed(() => {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   animation: ring-breathe 1.8s ease-in-out infinite;
 }
-/* Indeterminate “working” spinner — always spins; progress lives on the bar below. */
+/* Circular spinner: rotate the `rotate` property (not a square SVG / overflow clip). */
 .ring-spinner {
   box-sizing: border-box;
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 3px solid color-mix(in oklab, var(--primary) 16%, var(--muted));
-  border-top-color: var(--primary);
-  border-right-color: color-mix(in oklab, var(--primary) 55%, transparent);
+  background: conic-gradient(
+    from 0deg,
+    var(--primary) 0deg,
+    color-mix(in oklab, var(--primary) 50%, transparent) 80deg,
+    transparent 125deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+  transform-origin: 50% 50%;
+  z-index: 1;
   animation: ring-spin 0.75s linear infinite;
   pointer-events: none;
 }
 .ring-icon {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -326,8 +342,11 @@ const displaySource = computed(() => {
 }
 
 @keyframes ring-spin {
+  from {
+    rotate: 0deg;
+  }
   to {
-    transform: rotate(360deg);
+    rotate: 360deg;
   }
 }
 @keyframes ring-breathe {
@@ -359,12 +378,15 @@ const displaySource = computed(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .op-stage,
-  .ring-spinner,
   .ring-disc,
   .bar span,
   .bar--indeterminate .bar-center {
     animation: none;
     transition: none;
+  }
+  /* Keep the busy ring moving — it is the working indicator, not decorative motion. */
+  .ring-spinner {
+    animation-duration: 1.25s;
   }
   .bar--indeterminate .bar-center {
     opacity: 0.85;
