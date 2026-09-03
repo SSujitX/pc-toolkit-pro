@@ -198,6 +198,7 @@ function riskLabel(risk: string) {
       :source-value="sourceValue"
       :source-icon="FolderOpen"
       :progress="progressPct"
+      :indeterminate="!isCleaning"
       :stats="stats"
       :hint="isCleaning ? t('deepCleaner.cleanHint') : t('deepCleaner.scanHint')"
       :icon="Paintbrush"

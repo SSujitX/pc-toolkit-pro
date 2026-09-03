@@ -10,6 +10,8 @@ const props = withDefaults(
     sourceValue?: string;
     sourceIcon?: Component;
     progress?: number;
+    /** Stable centered activity bar — no left→right growth or slide. */
+    indeterminate?: boolean;
     hint?: string;
     stats?: Array<{ label: string; value: string }>;
     icon?: Component;
@@ -22,6 +24,7 @@ const props = withDefaults(
     sourceValue: undefined,
     sourceIcon: undefined,
     progress: 0,
+    indeterminate: false,
     hint: undefined,
     stats: () => [],
     icon: undefined,
@@ -38,6 +41,16 @@ const progressClamped = computed(() =>
 
 /** Horizontal bar only — the header ring is an indeterminate “working” spinner. */
 const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)));
+
+/** Keep the path row visually stable while deep paths flash by. */
+const displaySource = computed(() => {
+  const value = (props.sourceValue || '').trim();
+  if (!value) return '—';
+  const max = 56;
+  if (value.length <= max) return value;
+  const keep = Math.floor((max - 1) / 2);
+  return `${value.slice(0, keep)}…${value.slice(-keep)}`;
+});
 </script>
 
 <template>
@@ -47,7 +60,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
         <div
           class="ring-wrap"
           role="progressbar"
-          :aria-valuenow="Math.round(progressClamped)"
+          :aria-valuenow="indeterminate ? undefined : Math.round(progressClamped)"
           aria-valuemin="0"
           aria-valuemax="100"
           :aria-label="status"
@@ -65,18 +78,19 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
         </div>
       </div>
 
-      <div v-if="sourceValue" class="source">
+      <div v-if="sourceLabel || sourceValue" class="source">
         <span v-if="sourceIcon" class="source-glyph" aria-hidden="true">
           <component :is="sourceIcon" :size="15" :stroke-width="1.9" />
         </span>
         <div class="source-copy">
           <span class="source-label">{{ sourceLabel }}</span>
-          <code>{{ sourceValue }}</code>
+          <code :title="sourceValue || undefined">{{ displaySource }}</code>
         </div>
       </div>
 
-      <div class="bar" aria-hidden="true">
-        <span :style="{ width: `${barWidth}%` }" />
+      <div class="bar" :class="{ 'bar--indeterminate': indeterminate }" aria-hidden="true">
+        <span v-if="!indeterminate" :style="{ width: `${barWidth}%` }" />
+        <span v-else class="bar-center" />
       </div>
 
       <div v-if="stats?.length" class="stats">
@@ -104,6 +118,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
 .op-stage {
   display: grid;
   place-items: center;
+  justify-items: center;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -111,12 +126,16 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   animation: op-fade-in 220ms ease-out;
 }
 .op-card {
+  box-sizing: border-box;
   width: min(520px, 100%);
+  max-width: 100%;
   border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
   border-radius: 18px;
   background: var(--card);
   box-shadow: var(--shadow-card);
   padding: 26px 26px 20px;
+  /* Prevent path/stat updates from shifting the centered card. */
+  contain: layout style;
 }
 .op-head {
   display: flex;
@@ -181,9 +200,11 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   align-items: center;
   gap: 10px;
   margin-top: 18px;
+  min-height: 52px;
   border-radius: 12px;
   background: var(--surface-soft);
   padding: 12px 14px;
+  overflow: hidden;
 }
 .source-glyph {
   display: grid;
@@ -198,6 +219,7 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
 .source-copy {
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 .source-label {
   display: block;
@@ -212,11 +234,13 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   color: var(--foreground);
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-size: 0.75rem;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .bar {
+  position: relative;
   margin-top: 12px;
   height: 4px;
   border-radius: 999px;
@@ -234,6 +258,16 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   );
   transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+/* Fixed centered segment — pulse only, never slides left/right. */
+.bar--indeterminate {
+  display: grid;
+  place-items: center;
+}
+.bar--indeterminate .bar-center {
+  width: 36%;
+  transition: none;
+  animation: bar-pulse 1.4s ease-in-out infinite;
+}
 
 .stats {
   display: grid;
@@ -242,22 +276,31 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
   margin-top: 14px;
 }
 .stat {
+  min-width: 0;
   border-radius: 12px;
   background: var(--surface-soft);
   padding: 10px 12px;
+  overflow: hidden;
 }
 .stat span {
   display: block;
+  overflow: hidden;
   color: var(--muted-foreground);
   font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .stat strong {
   display: block;
   margin-top: 4px;
+  min-height: 1.25em;
+  overflow: hidden;
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hint {
@@ -304,14 +347,27 @@ const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)
     opacity: 1;
   }
 }
+@keyframes bar-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .op-stage,
   .ring-spinner,
   .ring-disc,
-  .bar span {
+  .bar span,
+  .bar--indeterminate .bar-center {
     animation: none;
     transition: none;
+  }
+  .bar--indeterminate .bar-center {
+    opacity: 0.85;
   }
 }
 </style>
