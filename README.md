@@ -97,8 +97,9 @@ Rebuilt from the ground up with **Tauri 2 + Vue 3 + Rust** for a fast, native-fe
 ## Download
 
 1. Open **[Releases](https://github.com/SSujitX/pc-toolkit-pro/releases/latest)**
-2. Install with the **NSIS setup** (`PC-Toolkit-Pro-*-setup.exe`), or run the portable EXE
-3. Optional: keep the app in the tray for quick **Clean Memory** and power actions
+2. Run the **NSIS setup** (`PC Toolkit Pro vX.Y.Z Setup.exe`) — installs for the current user to `%LOCALAPPDATA%\PC Toolkit Pro\` (Start Menu + `uninstall.exe`, no admin required for install)
+3. Optional: on **Memory Cleaner**, use **Restart as administrator** once so deep RAM clean / tray / auto-clean can use privileged Win32 APIs for that session
+4. Optional: keep the app in the tray for quick **Clean Memory** and power actions
 
 CI artifacts (unsigned / pre-release builds) are also available from **Actions → Build Windows EXE**.
 
