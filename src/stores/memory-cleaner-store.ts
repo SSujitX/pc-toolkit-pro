@@ -160,9 +160,10 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
     startStatsPolling() {
       void this.refreshStats();
       if (this.statsTimer != null) return;
+      // 1s — keep titlebar circle aligned with Physical memory / WMC / IObit.
       this.statsTimer = window.setInterval(() => {
         void this.refreshStats();
-      }, 2000);
+      }, 1000);
     },
     stopStatsPolling() {
       if (this.statsTimer != null) {
