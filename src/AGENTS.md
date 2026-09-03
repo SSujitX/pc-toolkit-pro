@@ -21,7 +21,7 @@ Current page domains: `cleaner`, `deep-cleaner`, `memory-cleaner`, `monitor`, `p
 
 Current Stores: `app-store` (shell/theme/navigation), `cleaner-store`, `deep-cleaner-store`, `memory-cleaner-store`, `monitor-store`, `power-store`, `system-info-store`, `history-store`, `app-update-store`.
 
-Deep Cleanup (`deep-cleaner`): category sidebar (system / application / browser / development), analyzing workspace with files/data/elapsed, Smart recommendation selection, Clean confirm. Uses `DeepCleanerService` → `scan_deep_cleanup` / `execute_deep_cleanup_command` (not the coarse 4-category Cleaner scan).
+Deep Cleanup (`deep-cleaner`): category sidebar (system / application / browser / development), analyzing workspace with files/data/elapsed, Smart recommendation above results, Clean confirm dialog with selected-item list + optional close/force-close of related apps. Elevation rules show an Admin badge; clean is skipped honestly when not elevated. Uses `DeepCleanerService` → `scan_deep_cleanup` / `execute_deep_cleanup_command` / process probe-close (not the coarse 4-category Cleaner scan).
 
 ## Vue and TypeScript
 
