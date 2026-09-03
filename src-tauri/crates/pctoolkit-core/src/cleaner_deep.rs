@@ -1267,7 +1267,7 @@ fn rule_catalog() -> Vec<RuleDef> {
                 if let Some(google) = join_opt(local_app_data(), &["Google"]) {
                     if let Ok(read) = fs::read_dir(google) {
                         for entry in read.flatten() {
-                            let name = entry.file_name().to_string_lossy();
+                            let name = entry.file_name().to_string_lossy().to_string();
                             if name.starts_with("AndroidStudio") {
                                 roots.extend(ide_cache_children(entry.path()));
                             }
