@@ -3,7 +3,7 @@ use pctoolkit_platform::{
 };
 use serde::Deserialize;
 
-use crate::commands::error::{run_blocking, CommandResult};
+use crate::commands::error::{run_blocking, CommandResult, CoreError};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -23,7 +23,7 @@ pub async fn probe_running_processes_command(
     request: ProcessNamesRequest,
 ) -> CommandResult<Vec<RunningProcessGroup>> {
     run_blocking("probe_running_processes", move || {
-        probe_running_processes(&request.names).map_err(|e| e.into())
+        probe_running_processes(&request.names).map_err(CoreError::from)
     })
     .await
 }
@@ -33,7 +33,7 @@ pub async fn close_running_processes_command(
     request: CloseProcessesRequest,
 ) -> CommandResult<ProcessCloseBatchResult> {
     run_blocking("close_running_processes", move || {
-        close_processes(&request.names, request.force).map_err(|e| e.into())
+        close_processes(&request.names, request.force).map_err(CoreError::from)
     })
     .await
 }
