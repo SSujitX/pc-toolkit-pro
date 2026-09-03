@@ -33,6 +33,9 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
     } as MemoryCleanerSettings,
     settingsLoaded: false,
     elevatedHint: false,
+    isElevated: false,
+    elevationLoaded: false,
+    restartingElevated: false,
     lastOptimizeAt: 0,
     lastLowMemoryOptimizeAt: 0,
     autoTimer: null as number | null,
@@ -47,6 +50,30 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
     intervalSteps: () => [...AUTO_INTERVAL_STEPS_MINUTES],
   },
   actions: {
+    async loadElevation() {
+      try {
+        const status = await MemoryCleanerService.getElevationStatus();
+        this.isElevated = status.elevated;
+        this.elevatedHint = !status.elevated;
+      } catch {
+        this.isElevated = false;
+        this.elevatedHint = true;
+      } finally {
+        this.elevationLoaded = true;
+      }
+    },
+    async restartAsAdministrator() {
+      if (this.isElevated || this.restartingElevated) return;
+      const app = useAppStore();
+      this.restartingElevated = true;
+      try {
+        await MemoryCleanerService.restartAsAdministrator();
+        // Process should exit after UAC approval; keep busy state if it does not.
+      } catch (error) {
+        this.restartingElevated = false;
+        if (!isCancelledError(error)) app.reportError(error);
+      }
+    },
     async loadSettings() {
       try {
         this.settings = await MemoryCleanerService.getSettings();
