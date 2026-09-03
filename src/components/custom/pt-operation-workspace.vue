@@ -40,7 +40,7 @@ const progressClamped = computed(() =>
 );
 
 /** Horizontal bar only — the header ring is an indeterminate “working” spinner. */
-const barWidth = computed(() => Math.min(100, Math.max(8, progressClamped.value)));
+const barWidth = computed(() => Math.min(100, Math.max(0, progressClamped.value)));
 
 /** Keep the path row visually stable while deep paths flash by. */
 const displaySource = computed(() => {
