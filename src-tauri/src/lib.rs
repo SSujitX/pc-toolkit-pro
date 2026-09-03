@@ -24,6 +24,8 @@ pub fn run() {
             commands::cleaner::scan_deep_cleanup,
             commands::cleaner::execute_deep_cleanup_command,
             commands::cleaner::cancel_cleanup,
+            commands::process::probe_running_processes_command,
+            commands::process::close_running_processes_command,
             commands::power::execute_power_action,
             commands::power::schedule_shutdown,
             commands::power::cancel_scheduled_shutdown,
