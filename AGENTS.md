@@ -67,15 +67,15 @@ Soft, dense utility chrome — warm soft background, soft sidebar, restrained bo
 
 - Default cleaner scan: **no admin required**; skip-and-continue on denied paths (temp, prefetch, recycle, related junk).
 - Memory Cleaner: selectable areas, live physical/virtual stats, auto-clean from **5 min** upward + free-RAM threshold; tray uses the same settings. Real Win32 APIs; honest skip/log when not elevated; **no PowerShell fake**; settings in `%LOCALAPPDATA%\PC Toolkit Pro\`.
-- Memory Cleaner offers **Restart as administrator** (UAC `runas` relaunch) so Optimize / tray / auto-clean can use privileged areas for that session. The app itself stays `asInvoker` (not always-on admin).
+- Optimize / titlebar circle prompts **Restart as administrator** only when needed; declining continues with honest skips. No always-on admin banner. Tray and auto-clean do not UAC-nag.
 
 ### Tray / Information / Updates / Power / Shell
 
 - Tray + hide-to-tray until Exit (Python-era behavior). Close / Alt+F4 hides; Exit quits.
 - Tray icon is created at **Rust startup** (stable id `pctoolkit-main-tray`) with a real icon; Vue attaches the menu after mount. Capabilities need `core:tray:default`, `core:menu:default`, and `core:image:default`.
-- Titlebar memory circle is **click-to-optimize** (same Memory Cleaner settings/path as tray clean) and must refresh immediately after optimize.
+- Titlebar memory circle is **click-to-optimize** (same Memory Cleaner settings/path as tray clean) and must refresh immediately after optimize. Live RAM % uses the same `GlobalMemoryStatusEx` load as Memory Cleaner / tray and polls about once per second.
 - No flashing console when collecting system info.
-- Information load emits staged progress (metrics → hardware → GPU → assemble); UI uses the shared operation workspace progress ring (same as Cleaner / Memory).
+- Information load emits staged progress (metrics → hardware → GPU → assemble); UI uses the shared operation workspace spinner (same as Cleaner / Memory).
 - Power schedule: after confirm, show a live countdown with **Cancel Shutdown** (`shutdown /a`); power actions check Windows exit status (no fire-and-forget success).
 - App updates use `@tauri-apps/plugin-updater` with signed release artifacts and GitHub `latest.json` — not “open releases URL” as the primary Check for Updates path.
 - Windows NSIS installer uses **`currentUser`** install mode: `%LOCALAPPDATA%\PC Toolkit Pro\` with Start Menu entry + `uninstall.exe` (no admin required to install). Main binary name `PCToolkitPro.exe`.
@@ -129,10 +129,12 @@ Tests are required for high-risk logic, persistence, safety boundaries, memory o
 - Do not add `Co-authored-by` Cursor/Codex trailers to commits; strip them if a hook injects them when the user objects.
 - Keep the product MIT-licensed; do not switch to GPL/GNU to match inspiration clones unless the user explicitly relicenses.
 - Match inspiration soft-density UI and professionalism, but keep PC Toolkit Pro branding and aim to exceed the reference apps rather than pixel-clone them.
+- Shared operation/loading spinners should be circular and continuously rotating (activity indicator), not a rounded square frame or progress-stepped spin.
 
 ## Learned Workspace Facts
 
 - The project license is MIT, not GPL (unlike MangoDisk / some inspiration trees under `test_inspiration/`).
 - With `createUpdaterArtifacts` enabled, CI must provide `TAURI_SIGNING_PRIVATE_KEY` (and password if configured) to both `release-windows.yml` and `tauri-build.yml`, or the build fails after packaging despite a successful EXE/NSIS step.
 - On Windows runners, write the key to a temp file and set `TAURI_SIGNING_PRIVATE_KEY` from that file in the **build** step. Do not use PowerShell `Out-File -Encoding utf8` for `GITHUB_ENV` (UTF-8 BOM breaks the variable name); use `Add-Content -Encoding utf8NoBOM` or append without a BOM.
+- The CI updater private key must match `plugins.updater.pubkey` in Tauri config; a wrong password fails key decode, and a mismatched keypair warns and will not verify updates at runtime.
 - Dual macOS support is feasible for shared shell/updater patterns, but Memory Cleaner Win32 optimize areas stay Windows-only; do not fake Mac feature parity for those APIs.
