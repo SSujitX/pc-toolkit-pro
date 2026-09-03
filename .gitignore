@@ -47,3 +47,4 @@ src-tauri/target
 *.sw?
 
 test_inspiration/
+superpowers/
