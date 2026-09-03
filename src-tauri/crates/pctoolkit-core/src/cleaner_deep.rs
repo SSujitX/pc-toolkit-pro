@@ -45,6 +45,12 @@ pub struct DeepCleanupProgress {
     pub bytes_scanned: u64,
     pub elapsed_ms: u64,
     pub message: String,
+    /// Work units completed (rules × scan cap, or execute rule index).
+    #[serde(default)]
+    pub current: u64,
+    /// Work units in this operation. UI percent = current / total.
+    #[serde(default)]
+    pub total: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1427,9 +1433,15 @@ where
         let mut items_scanned = 0u64;
         let mut bytes_scanned = 0u64;
 
-        for def in rule_catalog() {
+        let catalog = rule_catalog();
+        let total_rules = catalog.len() as u64;
+        let unit = MAX_ENTRIES_PER_RULE as u64;
+        let total = total_rules.saturating_mul(unit).max(1);
+
+        for (index, def) in catalog.iter().enumerate() {
             check_cancel()?;
             let elapsed_ms = started.elapsed().as_millis() as u64;
+            let base = (index as u64).saturating_mul(unit);
             on_progress(DeepCleanupProgress {
                 phase: "scanning".into(),
                 current_path: def.id.into(),
@@ -1437,6 +1449,8 @@ where
                 bytes_scanned,
                 elapsed_ms,
                 message: def.name_key.into(),
+                current: base,
+                total,
             });
 
             let (bytes, count, status) = match def.kind {
@@ -1449,6 +1463,7 @@ where
                         let filters = TreeFilters::from_rule(&def);
                         let mut bytes = 0u64;
                         let mut count = 0u32;
+                        let mut rule_items = 0u64;
                         for root in existing {
                             check_cancel()?;
                             let (b, c) = measure_tree(
@@ -1457,6 +1472,7 @@ where
                                 &mut |path, file_bytes| {
                                     items_scanned += 1;
                                     bytes_scanned += file_bytes;
+                                    rule_items += 1;
                                     if items_scanned % 250 == 0 {
                                         on_progress(DeepCleanupProgress {
                                             phase: "scanning".into(),
@@ -1465,6 +1481,10 @@ where
                                             bytes_scanned,
                                             elapsed_ms: started.elapsed().as_millis() as u64,
                                             message: def.name_key.into(),
+                                            current: base.saturating_add(
+                                                rule_items.min(unit.saturating_sub(1)),
+                                            ),
+                                            total,
                                         });
                                     }
                                 },
@@ -1510,6 +1530,8 @@ where
             bytes_scanned,
             elapsed_ms: started.elapsed().as_millis() as u64,
             message: "complete".into(),
+            current: total,
+            total,
         });
 
         Ok(DeepCleanupScan { rules, is_admin })
@@ -1549,6 +1571,8 @@ where
                 bytes_scanned: freed_bytes,
                 elapsed_ms: started.elapsed().as_millis() as u64,
                 message: def.name_key.into(),
+                current: index as u64 + 1,
+                total: selected_count.max(1) as u64,
             });
 
             if def.requires_elevation && !pctoolkit_platform::is_user_admin() {
