@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feat/tauri-rewrite
       - master
     paths:
       - 'src/**'
@@ -20,7 +19,6 @@ on:
       - '.github/workflows/tauri-build.yml'
   pull_request:
     branches:
-      - feat/tauri-rewrite
       - master
 
 concurrency:
