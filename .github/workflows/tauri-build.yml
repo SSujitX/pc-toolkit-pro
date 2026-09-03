@@ -130,9 +130,11 @@ jobs:
           Get-ChildItem -Recurse src-tauri/target/release/bundle -ErrorAction SilentlyContinue |
             Select-Object FullName, Length |
             Format-Table -AutoSize
-          if (Test-Path src-tauri/target/release/pc-toolkit-pro.exe) {
-            Get-Item src-tauri/target/release/pc-toolkit-pro.exe |
-              Select-Object FullName, Length
+          foreach ($name in @('PCToolkitPro.exe', 'pc-toolkit-pro.exe')) {
+            $path = "src-tauri/target/release/$name"
+            if (Test-Path $path) {
+              Get-Item $path | Select-Object FullName, Length
+            }
           }
 
       - name: Upload Windows installers
@@ -141,6 +143,7 @@ jobs:
           name: pc-toolkit-pro-windows-${{ github.sha }}
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/PCToolkitPro.exe
             src-tauri/target/release/pc-toolkit-pro.exe
           if-no-files-found: error
           retention-days: 14
