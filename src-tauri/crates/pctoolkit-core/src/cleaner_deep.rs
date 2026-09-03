@@ -127,6 +127,7 @@ struct TreeFilters {
 }
 
 impl TreeFilters {
+    #[cfg(test)]
     const NONE: Self = Self {
         file_name_contains: None,
         file_extensions: None,
