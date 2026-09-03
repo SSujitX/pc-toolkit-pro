@@ -18,6 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const open = ref(false);
+const placement = ref<'bottom' | 'top'>('bottom');
 const root = ref<HTMLElement | null>(null);
 const list = ref<HTMLElement | null>(null);
 
@@ -26,14 +27,41 @@ const selectedLabel = computed(() => {
   return match?.label ?? String(props.modelValue);
 });
 
+function overflowClipRect(el: HTMLElement): DOMRect {
+  let node = el.parentElement;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'hidden') {
+      return node.getBoundingClientRect();
+    }
+    node = node.parentElement;
+  }
+  return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
+function updatePlacement() {
+  const el = root.value;
+  if (!el) return;
+  const trigger = el.getBoundingClientRect();
+  const clip = overflowClipRect(el);
+  const spaceBelow = clip.bottom - trigger.bottom;
+  const spaceAbove = trigger.top - clip.top;
+  const optionCount = Math.max(props.options.length, 1);
+  const needed = Math.min(240, optionCount * 36 + 12) + 6;
+  placement.value = spaceBelow < needed && spaceAbove > spaceBelow ? 'top' : 'bottom';
+}
+
 function toggle() {
-  open.value = !open.value;
-  if (open.value) {
+  if (!open.value) {
+    updatePlacement();
+    open.value = true;
     void nextTick(() => {
       const active = list.value?.querySelector<HTMLElement>('[data-active="true"]');
       active?.scrollIntoView({ block: 'nearest' });
     });
+    return;
   }
+  open.value = false;
 }
 
 function pick(value: string | number) {
@@ -67,7 +95,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="root" class="pt-soft-select" :data-open="open ? 'true' : 'false'">
+  <div
+    ref="root"
+    class="pt-soft-select"
+    :data-open="open ? 'true' : 'false'"
+    :data-placement="placement"
+  >
     <button
       type="button"
       class="pt-soft-select-trigger"
@@ -159,6 +192,10 @@ onUnmounted(() => {
   box-shadow:
     0 12px 28px -16px color-mix(in oklab, var(--foreground) 35%, transparent),
     0 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+.pt-soft-select[data-placement='top'] .pt-soft-select-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 .pt-soft-select-option {
   display: flex;
