@@ -32,9 +32,10 @@ export const useMonitorStore = defineStore('monitor', {
     startPolling() {
       void this.refresh();
       if (this.timer != null) return;
+      // ~1s like WinMemoryCleaner tray — titlebar circle stays live.
       this.timer = window.setInterval(() => {
-        void this.refresh();
-      }, 4000);
+        void this.refreshQuiet();
+      }, 1000);
     },
     stopPolling() {
       if (this.timer != null) {
