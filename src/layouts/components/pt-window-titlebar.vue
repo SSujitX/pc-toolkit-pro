@@ -19,7 +19,13 @@ const diskFree = computed(() =>
 );
 const diskPercent = computed(() => monitor.snapshot?.diskPercent ?? 0);
 const memoryPercent = computed(() => {
-  const value = monitor.snapshot?.memoryPercent ?? 0;
+  // Prefer Memory Cleaner physical load (same GetPerformanceInfo source as the
+  // page / WMC / IObit). Fall back to monitor snapshot when stats are not ready.
+  const fromMemory = memory.stats?.physicalLoadPercent;
+  const value =
+    fromMemory != null && Number.isFinite(fromMemory)
+      ? fromMemory
+      : (monitor.snapshot?.memoryPercent ?? 0);
   return Math.min(100, Math.max(0, value));
 });
 const memoryPercentLabel = computed(() => Math.round(memoryPercent.value));
