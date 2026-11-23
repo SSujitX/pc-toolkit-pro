@@ -69,6 +69,34 @@ const CLOSE_ALLOWLIST: &[&str] = &[
     "cursor.exe",
     "vscodium.exe",
     "windsurf.exe",
+    "arc.exe",
+    "duckduckgo.exe",
+    "floorp.exe",
+    "librewolf.exe",
+    "waterfox.exe",
+    "thunderbird.exe",
+    "figma.exe",
+    "obsidian.exe",
+    "insomnia.exe",
+    "githubdesktop.exe",
+    "postman.exe",
+    "signal.exe",
+    "dropbox.exe",
+    "battle.net.exe",
+    "eadesktop.exe",
+    "epicgameslauncher.exe",
+    "epicwebhelper.exe",
+    "adobe premiere pro.exe",
+    "afterfx.exe",
+    "adobe media encoder.exe",
+    "adobe audition.exe",
+    "vlc.exe",
+    // Local AI model apps (model stores are locked while they run).
+    "ollama.exe",
+    "ollama app.exe",
+    "lm studio.exe",
+    "gpt4all.exe",
+    "jan.exe",
 ];
 
 fn normalize_image(name: &str) -> String {
@@ -129,7 +157,7 @@ pub fn probe_running_processes(names: &[String]) -> PlatformResult<Vec<RunningPr
 }
 
 fn taskkill(image: &str, force: bool) -> PlatformResult<()> {
-    let mut cmd = Command::new("taskkill");
+    let mut cmd = Command::new(crate::registry::system32_exe("taskkill.exe"));
     cmd.args(["/IM", image]);
     if force {
         cmd.arg("/F");
