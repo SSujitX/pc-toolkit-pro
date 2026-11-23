@@ -7,6 +7,10 @@ import {
   ExternalLink,
   FolderOpen,
   History,
+  ListX,
+  Power,
+  ShieldCheck,
+  PanelBottomClose,
   Info,
   Languages,
   Palette,
@@ -16,6 +20,9 @@ import {
 import { openUrl } from '@tauri-apps/plugin-opener';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtSoftSelect from '@/components/custom/pt-soft-select.vue';
+import PtSwitch from '@/components/custom/pt-switch.vue';
+import type { AppStartupSettings, AppStartupStatus } from '@/lib/models/app-settings';
+import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { APP_NAME, APP_VERSION, PAGE_IDS } from '@/lib/models/application-shell';
 import {
   APP_UPDATE_FAILURE_STAGE_IDS,
@@ -25,6 +32,12 @@ import { SettingsApi } from '@/lib/services/api-services';
 import { formatBytes } from '@/lib/utils/format';
 import { useAppStore, type ThemeMode } from '@/stores/app-store';
 import { useAppUpdateStore } from '@/stores/app-update-store';
+import { useHistoryStore } from '@/stores/history-store';
+import {
+  HISTORY_LIMIT_MAX,
+  HISTORY_LIMIT_MIN,
+  HISTORY_LIMIT_PRESETS,
+} from '@/lib/models/history';
 import appLogo from '@/assets/brand/logo.png';
 
 const GITHUB_URL = 'https://github.com/SSujitX/pc-toolkit-pro';
@@ -36,6 +49,87 @@ const { t } = useI18n();
 const app = useAppStore();
 const updates = useAppUpdateStore();
 const aboutOpen = ref(false);
+const history = useHistoryStore();
+
+/* Startup & administrator: start with Windows, start in tray, always elevated. */
+const startup = ref<AppStartupStatus | null>(null);
+const startupSaving = ref(false);
+const memory = useMemoryCleanerStore();
+
+async function loadStartupSettings() {
+  try {
+    startup.value = await SettingsApi.getStartupSettings();
+  } catch {
+    startup.value = null;
+  }
+}
+
+async function updateStartup(patch: Partial<AppStartupSettings>) {
+  if (!startup.value || startupSaving.value) return;
+  startupSaving.value = true;
+  try {
+    startup.value = await SettingsApi.setStartupSettings({ ...startup.value.settings, ...patch });
+  } catch (error) {
+    app.reportError(error);
+  } finally {
+    startupSaving.value = false;
+  }
+}
+
+/** Run-as-admin is on but this copy is not elevated: offer the UAC restart now. */
+const needsElevatedRestart = computed(
+  () => !!startup.value && startup.value.settings.runAsAdmin && !startup.value.elevated
+);
+const startupNote = computed(() => {
+  const s = startup.value;
+  if (!s) return '';
+  if (s.registration === 'failed') return t('settings.startup.noteFailed');
+  if (s.registration === 'needsAdminToCreateTask') return t('settings.startup.noteNeedsAdminCreate');
+  if (s.registration === 'needsAdminToRemoveTask') return t('settings.startup.noteNeedsAdminRemove');
+  if (s.registration === 'elevatedTask') return t('settings.startup.noteElevatedTask');
+  return '';
+});
+
+/* Activity history retention: presets plus a custom number (1–1000). */
+const CUSTOM_LIMIT = 'custom';
+const customMode = ref(false);
+const customLimit = ref<number | null>(null);
+const historyLimit = computed(() => history.settings?.maxRecords ?? 100);
+const isPresetLimit = computed(() =>
+  (HISTORY_LIMIT_PRESETS as readonly number[]).includes(historyLimit.value)
+);
+const historyLimitValue = computed<string | number>(() =>
+  customMode.value || !isPresetLimit.value ? CUSTOM_LIMIT : historyLimit.value
+);
+const historyLimitOptions = computed(() => [
+  ...HISTORY_LIMIT_PRESETS.map((value) => ({
+    value,
+    label: t('settings.historyLimitOption', { count: value }, value),
+  })),
+  { value: CUSTOM_LIMIT, label: t('settings.historyLimitCustom') },
+]);
+const historyCount = computed(() => history.records.length);
+
+function onHistoryLimitChange(value: string | number) {
+  if (value === CUSTOM_LIMIT) {
+    customMode.value = true;
+    customLimit.value = historyLimit.value;
+    return;
+  }
+  customMode.value = false;
+  void history.saveSettings({ maxRecords: Number(value) });
+}
+
+function commitCustomLimit() {
+  const raw = Math.round(Number(customLimit.value));
+  if (!Number.isFinite(raw) || customLimit.value === null) {
+    customLimit.value = historyLimit.value;
+    return;
+  }
+  const value = Math.min(HISTORY_LIMIT_MAX, Math.max(HISTORY_LIMIT_MIN, raw));
+  customLimit.value = value;
+  if (value !== historyLimit.value) void history.saveSettings({ maxRecords: value });
+}
 
 const themeOptions = computed(() => [
   { value: 'system', label: t('settings.themeSystem') },
@@ -201,6 +295,11 @@ function onEsc(event: KeyboardEvent) {
 onMounted(() => {
   document.addEventListener('keydown', onEsc);
   void updates.initialize();
+  void history.loadSettings().then(() => {
+    customLimit.value = historyLimit.value;
+  });
+  void history.load({ reportError: false });
+  void loadStartupSettings();
 });
 onUnmounted(() => document.removeEventListener('keydown', onEsc));
 </script>
@@ -248,6 +347,68 @@ onUnmounted(() => document.removeEventListener('keydown', onEsc));
         </div>
       </section>
 
+      <section v-if="startup" class="group">
+        <h2 class="group-label">{{ t('settings.groups.startup') }}</h2>
+        <div class="card">
+          <div class="setting-row">
+            <span class="row-icon" aria-hidden="true">
+              <Power :size="18" :stroke-width="1.9" />
+            </span>
+            <div class="row-copy">
+              <strong>{{ t('settings.startup.withWindows') }}</strong>
+              <p>{{ t('settings.startup.withWindowsBody') }}</p>
+            </div>
+            <PtSwitch
+              :model-value="startup.settings.startWithWindows"
+              :disabled="startupSaving"
+              :aria-label="t('settings.startup.withWindows')"
+              @update:model-value="updateStartup({ startWithWindows: $event })"
+            />
+          </div>
+
+          <div class="setting-row">
+            <span class="row-icon" aria-hidden="true">
+              <PanelBottomClose :size="18" :stroke-width="1.9" />
+            </span>
+            <div class="row-copy">
+              <strong>{{ t('settings.startup.minimized') }}</strong>
+              <p>{{ t('settings.startup.minimizedBody') }}</p>
+            </div>
+            <PtSwitch
+              :model-value="startup.settings.startMinimized"
+              :disabled="startupSaving || !startup.settings.startWithWindows"
+              :aria-label="t('settings.startup.minimized')"
+              @update:model-value="updateStartup({ startMinimized: $event })"
+            />
+          </div>
+
+          <div class="setting-row">
+            <span class="row-icon" aria-hidden="true">
+              <ShieldCheck :size="18" :stroke-width="1.9" />
+            </span>
+            <div class="row-copy">
+              <strong>{{ t('settings.startup.runAsAdmin') }}</strong>
+              <p>{{ t('settings.startup.runAsAdminBody') }}</p>
+              <span v-if="startupNote" class="row-meta">{{ startupNote }}</span>
+              <button
+                v-if="needsElevatedRestart"
+                type="button"
+                class="pt-btn pt-btn-primary small-btn"
+                @click="memory.restartAsAdministrator()"
+              >
+                {{ t('settings.startup.restartNow') }}
+              </button>
+            </div>
+            <PtSwitch
+              :model-value="startup.settings.runAsAdmin"
+              :disabled="startupSaving"
+              :aria-label="t('settings.startup.runAsAdmin')"
+              @update:model-value="updateStartup({ runAsAdmin: $event })"
+            />
+          </div>
+        </div>
+      </section>
+
       <section class="group">
         <h2 class="group-label">{{ t('settings.groups.support') }}</h2>
         <div class="card">
@@ -278,6 +439,43 @@ onUnmounted(() => document.removeEventListener('keydown', onEsc));
               <ChevronRight :size="16" :stroke-width="2" />
             </span>
           </button>
+
+          <div class="setting-row">
+            <span class="row-icon" aria-hidden="true">
+              <ListX :size="18" :stroke-width="1.9" />
+            </span>
+            <div class="row-copy">
+              <strong>{{ t('settings.historyLimit') }}</strong>
+              <p>
+                {{ t('settings.historyLimitBody', { count: historyLimit }, historyLimit) }}
+                <span class="row-meta">{{
+                  t('settings.historyLimitStored', { count: historyCount }, historyCount)
+                }}</span>
+              </p>
+            </div>
+            <div class="row-control limit-control">
+              <PtSoftSelect
+                :model-value="historyLimitValue"
+                :options="historyLimitOptions"
+                :aria-label="t('settings.historyLimit')"
+                @update:model-value="onHistoryLimitChange"
+              />
+              <label v-if="historyLimitValue === CUSTOM_LIMIT" class="limit-input">
+                <input
+                  v-model.number="customLimit"
+                  type="number"
+                  inputmode="numeric"
+                  :min="HISTORY_LIMIT_MIN"
+                  :max="HISTORY_LIMIT_MAX"
+                  step="1"
+                  :aria-label="t('settings.historyLimitCustomLabel')"
+                  @change="commitCustomLimit"
+                  @keydown.enter="commitCustomLimit"
+                />
+                <span>{{ t('settings.historyLimitUnit') }}</span>
+              </label>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -305,7 +503,7 @@ onUnmounted(() => document.removeEventListener('keydown', onEsc));
         <button
           type="button"
           class="about-close"
-          aria-label="Close"
+          :aria-label="t('common.close')"
           :disabled="closeLocked"
           @click="closeAbout"
         >
@@ -525,6 +723,48 @@ onUnmounted(() => document.removeEventListener('keydown', onEsc));
 .row-control {
   width: min(180px, 38vw);
   flex: none;
+}
+.limit-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.limit-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+.limit-input:focus-within {
+  border-color: var(--primary);
+}
+.limit-input input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.small-btn {
+  min-height: 30px;
+  margin-top: 8px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+.row-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
 }
 .row-link {
   display: inline-flex;
@@ -776,6 +1016,18 @@ onUnmounted(() => document.removeEventListener('keydown', onEsc));
   }
   100% {
     transform: translateX(320%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Indeterminate download: a calm pulsing bar instead of a sliding one. */
+  .download-track > span.indeterminate {
+    width: 100%;
+    animation: progress-pulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes progress-pulse {
+  50% {
+    opacity: 0.45;
   }
 }
 
