@@ -1,5 +1,5 @@
 export const APP_NAME = 'PC Toolkit Pro';
-export const APP_VERSION = '3.2.0';
+export const APP_VERSION = '3.2.1';
 
 export const PAGE_IDS = {
   monitor: 'monitor',
