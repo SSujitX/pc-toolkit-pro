@@ -51,7 +51,7 @@ static BUSY: AtomicBool = AtomicBool::new(false);
 static CANCELLED: AtomicBool = AtomicBool::new(false);
 static PROGRAMS: Mutex<Vec<ProgramRecord>> = Mutex::new(Vec::new());
 /// Recent leftover scans, oldest first (clean requests resolve item ids against these).
-static SCANS: Mutex<Vec<(String, Vec<Leftover>)>> = Mutex::new(Vec::new());
+static SCANS: Mutex<Vec<(String, (String, Vec<Leftover>))>> = Mutex::new(Vec::new());
 /// Each batch uninstall creates at most a handful of scans.
 const MAX_SCANS: usize = 16;
 /// Every raw uninstall entry of the last listing, including the ones not shown (system
@@ -283,7 +283,35 @@ fn find_record(program_id: &str) -> CoreResult<(ProgramRecord, OtherPrograms)> {
     Ok((record, others))
 }
 
-fn snapshot(record: &ProgramRecord) -> ProgramSnapshot {
+/// Executables the program owns, from its uninstall entry hints and its install folder. Called
+/// before the uninstaller runs so the paths are known after the folder is gone.
+fn program_exes(record: &ProgramRecord) -> Vec<PathBuf> {
+    let mut hints = Vec::new();
+    if let Some(entry) = record.entry.as_ref() {
+        if let Some((icon, _)) = icons::parse_display_icon(&entry.display_icon) {
+            hints.push(icon);
+        }
+        for command in [&entry.uninstall_string, &entry.quiet_uninstall_string] {
+            if let Some(exe) = matching::first_path(command) {
+                hints.push(exe);
+            }
+        }
+    }
+    leftovers::collect_program_exes(record.install_dir.as_deref(), &hints)
+}
+
+/// "Name 1.2.3" for history summaries (version only when the name does not already end with it).
+fn display_name(record: &ProgramRecord) -> String {
+    let name = record.program.name.trim();
+    let version = record.program.version.trim();
+    if version.is_empty() || name.ends_with(version) {
+        name.to_string()
+    } else {
+        format!("{name} {version}")
+    }
+}
+
+fn snapshot(record: &ProgramRecord, exe_paths: Vec<PathBuf>) -> ProgramSnapshot {
     ProgramSnapshot {
         names: NameSet::build(
             &record.program.name,
@@ -294,6 +322,7 @@ fn snapshot(record: &ProgramRecord) -> ProgramSnapshot {
         install_dir: record.install_dir.clone(),
         uninstall_key: record.entry.as_ref().and_then(|e| e.key.clone()),
         store_family_name: record.store_family_name.clone(),
+        exe_paths,
     }
 }
 
@@ -308,11 +337,17 @@ pub struct LeftoverScan {
     pub is_admin: bool,
 }
 
-fn run_scan<F>(record: &ProgramRecord, others: &OtherPrograms, on_progress: &mut F, started: Instant) -> LeftoverScan
+fn run_scan<F>(
+    record: &ProgramRecord,
+    others: &OtherPrograms,
+    exe_paths: Vec<PathBuf>,
+    on_progress: &mut F,
+    started: Instant,
+) -> LeftoverScan
 where
     F: FnMut(UninstallerProgress),
 {
-    let program = snapshot(record);
+    let program = snapshot(record, exe_paths);
     let protected = ProtectedRoots::from_environment();
     let ctx = ScanContext {
         program: &program,
@@ -331,7 +366,12 @@ where
     let scan_id = uuid::Uuid::new_v4().to_string();
     let items: Vec<LeftoverItem> = found.iter().map(|l| l.item.clone()).collect();
     let total_bytes = items.iter().map(|i| i.bytes).sum();
-    remember_scan(&mut SCANS.lock().unwrap_or_else(|e| e.into_inner()), scan_id.clone(), found, MAX_SCANS);
+    remember_scan(
+        &mut SCANS.lock().unwrap_or_else(|e| e.into_inner()),
+        scan_id.clone(),
+        (display_name(record), found),
+        MAX_SCANS,
+    );
     LeftoverScan {
         scan_id,
         program_id: record.program.id.clone(),
@@ -407,6 +447,8 @@ where
     let started = Instant::now();
     let started_ms = history_now_ms();
     let (record, others) = find_record(&request.program_id)?;
+    // Record the program's executables now: the uninstaller removes its folder.
+    let exe_paths = program_exes(&record);
     let name = record.program.name.clone();
     let progress = |phase: &str, started: Instant| UninstallerProgress::new(phase, &name, started);
 
@@ -469,7 +511,7 @@ where
 
     let removed = matches!(status, UninstallStatus::Completed | UninstallStatus::CompletedRebootRequired);
     let leftovers = (removed && request.scan_leftovers && !cancelled())
-        .then(|| run_scan(&record, &others, &mut on_progress, started));
+        .then(|| run_scan(&record, &others, exe_paths, &mut on_progress, started));
 
     if removed {
         // Removed by us: never report it as "removed by another uninstaller".
@@ -502,8 +544,9 @@ where
             UninstallStatus::Cancelled => HistoryOutcome::Cancelled,
             _ => HistoryOutcome::Failed,
         },
-        planned_bytes: None,
-        result_bytes: None,
+        // The program's size (when known) reads better in History than "1 → 1".
+        planned_bytes: (record.program.size_bytes > 0).then_some(record.program.size_bytes),
+        result_bytes: (record.program.size_bytes > 0).then_some(if removed { record.program.size_bytes } else { 0 }),
         selected_item_count: 1,
         affected_item_count: u32::from(removed),
         failed_item_count: u32::from(!removed),
@@ -538,7 +581,8 @@ where
 {
     let _busy = BusyGuard::acquire()?;
     let (record, others) = find_record(program_id)?;
-    Ok(run_scan(&record, &others, &mut on_progress, Instant::now()))
+    let exe_paths = program_exes(&record);
+    Ok(run_scan(&record, &others, exe_paths, &mut on_progress, Instant::now()))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -578,6 +622,32 @@ pub struct LeftoverCleanResult {
     pub items: Vec<LeftoverItemOutcome>,
     /// The user cancelled; remaining items were not processed (callers stop any batch).
     pub cancelled: bool,
+}
+
+/// Delete a Prefetch trace only if it is still a plain `.pf` file directly inside
+/// `%SystemRoot%\Prefetch` (Windows rebuilds Prefetch data; no Recycle Bin needed).
+fn delete_prefetch(path: &Path) -> LeftoverItemStatus {
+    let Some(dir) = leftovers::prefetch_dir() else { return LeftoverItemStatus::Failed };
+    let inside = path
+        .parent()
+        .is_some_and(|parent| matching::path_key(parent) == matching::path_key(&dir));
+    let name_ok = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| leftovers::prefetch_exe_name(n).is_some());
+    if !inside || !name_ok {
+        return LeftoverItemStatus::Failed;
+    }
+    match fs::symlink_metadata(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => LeftoverItemStatus::NotFound,
+        Err(_) => LeftoverItemStatus::Failed,
+        Ok(meta) if !meta.is_file() || inventory::is_reparse(&meta) => LeftoverItemStatus::Failed,
+        Ok(_) => match fs::remove_file(path) {
+            Ok(()) => LeftoverItemStatus::Removed,
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => LeftoverItemStatus::SkippedNeedAdmin,
+            Err(_) => LeftoverItemStatus::Failed,
+        },
+    }
 }
 
 fn backup_dir() -> Option<PathBuf> {
@@ -703,12 +773,12 @@ where
     let _busy = BusyGuard::acquire()?;
     let started = Instant::now();
     let started_ms = history_now_ms();
-    let leftovers = {
+    let (program_label, leftovers) = {
         let scans = SCANS.lock().unwrap_or_else(|e| e.into_inner());
         scans
             .iter()
             .find(|(id, _)| id == &request.scan_id)
-            .map(|(_, found)| found.clone())
+            .map(|(_, scan)| scan.clone())
             .ok_or_else(|| CoreError::InvalidInput("unknownScan".into()))?
     };
     let wanted: std::collections::HashSet<&str> = request.item_ids.iter().map(String::as_str).collect();
@@ -795,6 +865,7 @@ where
                         }
                     }
                 }
+                LeftoverAction::DeletePrefetch(path) => delete_prefetch(path),
                 LeftoverAction::DeleteService(name) => platform_status(delete_service(name)),
                 LeftoverAction::DeleteTask(name) => platform_status(delete_scheduled_task(name)),
             }
@@ -829,7 +900,7 @@ where
         category: "uninstaller".into(),
         title_key: "history.titles.uninstallerCleanup".into(),
         summary: format!(
-            "{} removed · {} skipped · {} failed",
+            "{program_label} · {} removed · {} skipped · {} failed",
             result.removed_count + result.pending_reboot_count,
             result.skipped_need_admin_count,
             result.failed_count
