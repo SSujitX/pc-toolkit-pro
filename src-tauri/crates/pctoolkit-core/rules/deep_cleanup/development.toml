@@ -1,0 +1,359 @@
+# Deep Cleanup — developer tool rules. Schema: see README.md in this folder.
+# Download/build caches that the tool rebuilds on demand. Never project folders,
+# toolchains, virtual environments, or credentials.
+
+[[rule]]
+id = "dev.npmCache"
+group = "development"
+name_key = "deepCleaner.rules.npmCache"
+detail_key = "deepCleaner.rules.npmCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "roaming", path = "npm-cache" },
+  { base = "local", path = "npm-cache" },
+]
+
+[[rule]]
+id = "dev.pnpmStore"
+group = "development"
+name_key = "deepCleaner.rules.pnpmStore"
+detail_key = "deepCleaner.rules.pnpmStoreDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "pnpm/store" },
+  { base = "local", path = "pnpm-cache" },
+]
+
+[[rule]]
+id = "dev.yarnCache"
+group = "development"
+name_key = "deepCleaner.rules.yarnCache"
+detail_key = "deepCleaner.rules.yarnCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "Yarn/Cache" },
+  { base = "local", path = "Yarn/Berry/Cache" },
+]
+
+[[rule]]
+id = "dev.pipCache"
+group = "development"
+name_key = "deepCleaner.rules.pipCache"
+detail_key = "deepCleaner.rules.pipCacheDetail"
+risk = "recoverable"
+roots = [{ base = "local", path = "pip/Cache" }]
+
+[[rule]]
+id = "dev.uvCache"
+group = "development"
+name_key = "deepCleaner.rules.uvCache"
+detail_key = "deepCleaner.rules.uvCacheDetail"
+risk = "recoverable"
+recommended = true
+roots = [{ base = "local", path = "uv/cache" }]
+
+[[rule]]
+id = "dev.cargoCache"
+group = "development"
+name_key = "deepCleaner.rules.cargoCache"
+detail_key = "deepCleaner.rules.cargoCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = ".cargo", env = [{ var = "CARGO_HOME" }], suffixes = [
+    "registry/cache", "registry/src", "git/db", "git/checkouts",
+  ] },
+  { base = "home", path = ".rustup", env = [{ var = "RUSTUP_HOME" }], suffixes = ["downloads"] },
+]
+
+[[rule]]
+id = "dev.goModuleCache"
+group = "development"
+name_key = "deepCleaner.rules.goModuleCache"
+detail_key = "deepCleaner.rules.goModuleCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = "go/pkg/mod", env = [{ var = "GOMODCACHE" }, { var = "GOPATH", path = "pkg/mod" }] },
+]
+
+[[rule]]
+id = "dev.goBuildCache"
+group = "development"
+name_key = "deepCleaner.rules.goBuildCache"
+detail_key = "deepCleaner.rules.goBuildCacheDetail"
+risk = "recoverable"
+# GOCACHE=off disables the root entirely.
+roots = [{ base = "local", path = "go-build", env = [{ var = "GOCACHE" }] }]
+
+[[rule]]
+id = "dev.nugetCache"
+group = "development"
+name_key = "deepCleaner.rules.nugetCache"
+detail_key = "deepCleaner.rules.nugetCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "NuGet/v3-cache" },
+  { base = "local", path = "NuGet/plugins-cache" },
+  { base = "local", path = "NuGet/Scratch" },
+  { base = "temp", path = "NuGetScratch" },
+  { base = "home", path = ".nuget/packages" },
+]
+
+[[rule]]
+id = "dev.gradleCaches"
+group = "development"
+name_key = "deepCleaner.rules.gradleCaches"
+detail_key = "deepCleaner.rules.gradleCachesDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = ".gradle", env = [{ var = "GRADLE_USER_HOME" }], suffixes = [
+    "caches", "daemon", "workers", "notifications", ".tmp",
+  ] },
+]
+
+[[rule]]
+id = "dev.mavenRepository"
+group = "development"
+name_key = "deepCleaner.rules.mavenRepository"
+detail_key = "deepCleaner.rules.mavenRepositoryDetail"
+risk = "recoverable"
+roots = [{ base = "home", path = ".m2/repository" }]
+
+[[rule]]
+id = "dev.jetbrainsCaches"
+group = "development"
+name_key = "deepCleaner.rules.jetbrainsCaches"
+detail_key = "deepCleaner.rules.jetbrainsCachesDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "JetBrains", children = { all = true }, suffixes = [
+    "caches", "index", "tmp", "log", "compile-server",
+  ] },
+  { base = "local", path = "Google", children = { prefixes = ["AndroidStudio"] }, suffixes = [
+    "caches", "index", "tmp", "log", "compile-server",
+  ] },
+]
+
+[[rule]]
+id = "dev.vsCache"
+group = "development"
+name_key = "deepCleaner.rules.vsCache"
+detail_key = "deepCleaner.rules.vsCacheDetail"
+risk = "recoverable"
+roots = [
+  # Per-instance MEF / component / image caches only; VisualStudio/Packages (installer
+  # payloads) and Settings are never roots.
+  { base = "local", path = "Microsoft/VisualStudio", children = { all = true }, suffixes = [
+    "ComponentModelCache", "MEFCacheBackup", "ImageLibrary",
+  ] },
+  { base = "local", path = "Microsoft/VSCommon", children = { all = true }, suffixes = ["MEFCache"] },
+]
+
+[[rule]]
+id = "dev.nodeTooling"
+group = "development"
+name_key = "deepCleaner.rules.nodeTooling"
+detail_key = "deepCleaner.rules.nodeToolingDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "node-gyp" },
+  { base = "roaming", path = "nvm-windows/cache" },
+  { base = "local", path = "node/corepack" },
+  { base = "local", path = "electron/Cache" },
+  { base = "local", path = "electron-builder/Cache" },
+  { base = "home", path = ".node-gyp" },
+  { base = "home", path = ".cache/node/corepack", env = [{ var = "COREPACK_HOME" }] },
+]
+
+[[rule]]
+id = "dev.playwrightCache"
+group = "development"
+name_key = "deepCleaner.rules.playwrightCache"
+detail_key = "deepCleaner.rules.playwrightCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", children = { prefixes = ["ms-playwright"] } },
+  { base = "local", path = "Cypress/Cache" },
+  { base = "home", path = ".cache/puppeteer", env = [{ var = "PUPPETEER_CACHE_DIR" }] },
+  { base = "home", path = ".cache/selenium", env = [{ var = "SE_CACHE_PATH" }] },
+]
+
+[[rule]]
+id = "dev.androidCache"
+group = "development"
+name_key = "deepCleaner.rules.androidCache"
+detail_key = "deepCleaner.rules.androidCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "Android/Sdk", suffixes = [".temp", "temp", "cache"] },
+  { base = "home", path = ".android", suffixes = ["cache", "build-cache"] },
+]
+
+[[rule]]
+id = "dev.editorCache"
+group = "development"
+name_key = "deepCleaner.rules.editorCache"
+detail_key = "deepCleaner.rules.editorCacheDetail"
+risk = "recoverable"
+processes = ["Code.exe", "Cursor.exe", "VSCodium.exe", "Windsurf.exe"]
+roots = [
+  { base = "roaming", children = { names = ["Code", "Code - Insiders", "Cursor", "VSCodium", "Windsurf"] }, suffixes = [
+    "Cache", "CachedData", "Code Cache", "GPUCache", "CachedExtensionVSIXs", "logs", "Crashpad",
+  ] },
+]
+
+[[rule]]
+id = "dev.bunCache"
+group = "development"
+name_key = "deepCleaner.rules.bunCache"
+detail_key = "deepCleaner.rules.bunCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = ".bun/install/cache", env = [{ var = "BUN_INSTALL_CACHE_DIR" }, { var = "BUN_INSTALL", path = "install/cache" }] },
+]
+
+[[rule]]
+id = "dev.denoCache"
+group = "development"
+name_key = "deepCleaner.rules.denoCache"
+detail_key = "deepCleaner.rules.denoCacheDetail"
+risk = "recoverable"
+# DENO_DIR is a pure cache (remote modules, npm cache, compiled output, analysis DBs).
+# Installed scripts live in ~/.deno/bin, which is not a root.
+roots = [{ base = "local", path = "deno", env = [{ var = "DENO_DIR" }] }]
+
+[[rule]]
+id = "dev.composerCache"
+group = "development"
+name_key = "deepCleaner.rules.composerCache"
+detail_key = "deepCleaner.rules.composerCacheDetail"
+risk = "recoverable"
+# Cache dir only; COMPOSER_HOME (config, auth.json, global vendor) is never a root.
+roots = [
+  { base = "local", path = "Composer", env = [{ var = "COMPOSER_CACHE_DIR" }], suffixes = ["files", "repo", "vcs"] },
+]
+
+[[rule]]
+id = "dev.vcpkgArchives"
+group = "development"
+name_key = "deepCleaner.rules.vcpkgArchives"
+detail_key = "deepCleaner.rules.vcpkgArchivesDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "vcpkg/archives", env = [{ var = "VCPKG_DEFAULT_BINARY_CACHE" }] },
+]
+
+[[rule]]
+id = "dev.sccacheCache"
+group = "development"
+name_key = "deepCleaner.rules.sccacheCache"
+detail_key = "deepCleaner.rules.sccacheCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "Mozilla/sccache/cache", env = [{ var = "SCCACHE_DIR" }] },
+  { base = "home", path = ".cache/sccache" },
+]
+
+[[rule]]
+id = "dev.ccacheCache"
+group = "development"
+name_key = "deepCleaner.rules.ccacheCache"
+detail_key = "deepCleaner.rules.ccacheCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = "ccache", env = [{ var = "CCACHE_DIR" }] },
+  { base = "roaming", path = "ccache" },
+]
+# ccache.conf holds the user's cache settings and is kept.
+matcher = { not = { name_glob = ["ccache.conf"] } }
+
+[[rule]]
+id = "dev.terraformPluginCache"
+group = "development"
+name_key = "deepCleaner.rules.terraformPluginCache"
+detail_key = "deepCleaner.rules.terraformPluginCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "roaming", path = "terraform.d/plugin-cache", env = [{ var = "TF_PLUGIN_CACHE_DIR" }] },
+  { base = "home", path = ".terraform.d/plugin-cache" },
+]
+
+[[rule]]
+id = "dev.poetryCache"
+group = "development"
+name_key = "deepCleaner.rules.poetryCache"
+detail_key = "deepCleaner.rules.poetryCacheDetail"
+risk = "recoverable"
+# Download caches only; pypoetry/Cache/virtualenvs holds project environments and is kept.
+roots = [
+  { base = "local", path = "pypoetry/Cache", env = [{ var = "POETRY_CACHE_DIR" }], suffixes = ["artifacts", "cache"] },
+]
+
+[[rule]]
+id = "dev.pyenvCache"
+group = "development"
+name_key = "deepCleaner.rules.pyenvCache"
+detail_key = "deepCleaner.rules.pyenvCacheDetail"
+risk = "recoverable"
+# Installer downloads only; installed Python versions are kept.
+roots = [{ base = "home", path = ".pyenv/pyenv-win/install_cache" }]
+
+[[rule]]
+id = "dev.pythonToolCaches"
+group = "development"
+name_key = "deepCleaner.rules.pythonToolCaches"
+detail_key = "deepCleaner.rules.pythonToolCachesDetail"
+risk = "recoverable"
+roots = [{ base = "home", path = ".cache", suffixes = ["ruff", "mypy"] }]
+
+[[rule]]
+id = "dev.preCommitCache"
+group = "development"
+name_key = "deepCleaner.rules.preCommitCache"
+detail_key = "deepCleaner.rules.preCommitCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = ".cache/pre-commit", env = [{ var = "PRE_COMMIT_HOME" }] },
+]
+
+[[rule]]
+id = "dev.hexCache"
+group = "development"
+name_key = "deepCleaner.rules.hexCache"
+detail_key = "deepCleaner.rules.hexCacheDetail"
+risk = "recoverable"
+roots = [{ base = "home", path = ".hex/cache" }]
+
+[[rule]]
+id = "dev.sbtIvyCache"
+group = "development"
+name_key = "deepCleaner.rules.sbtIvyCache"
+detail_key = "deepCleaner.rules.sbtIvyCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "home", path = ".sbt", suffixes = ["boot", "preloaded"] },
+  { base = "home", path = ".ivy2/cache" },
+]
+
+[[rule]]
+id = "dev.dartServerCache"
+group = "development"
+name_key = "deepCleaner.rules.dartServerCache"
+detail_key = "deepCleaner.rules.dartServerCacheDetail"
+risk = "recoverable"
+roots = [
+  { base = "local", path = ".dartServer" },
+  { base = "home", path = ".dartServer" },
+]
+
+[[rule]]
+id = "dev.copilotCliLeftovers"
+group = "development"
+name_key = "deepCleaner.rules.copilotCliLeftovers"
+detail_key = "deepCleaner.rules.copilotCliLeftoversDetail"
+risk = "safe"
+# Interrupted package extractions only (".extracting-*" folders older than a day);
+# the installed Copilot CLI package next to them is kept.
+roots = [
+  { base = "local", path = "copilot/pkg", children = { all = true }, suffixes = [".extracting-*"] },
+]
+matcher = { older_than_days = 1 }
