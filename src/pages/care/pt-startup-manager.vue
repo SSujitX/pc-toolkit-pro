@@ -16,7 +16,7 @@ import {
 import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue';
 import PtEmptyState from '@/components/custom/pt-empty-state.vue';
 import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
-import { STARTUP_FILTERS, startsWithWindows, type StartupItem } from '@/lib/models/startup';
+import { STARTUP_FILTERS, isPolicyLocked, startsWithWindows, type StartupItem } from '@/lib/models/startup';
 import { useStartupStore } from '@/stores/startup-store';
 
 const { t, locale } = useI18n();
@@ -34,6 +34,8 @@ function onKey(event: KeyboardEvent) {
   if (event.key === 'Escape') openMenuId.value = null;
 }
 onMounted(() => {
+  const sources = ['run', 'runOnce', 'startupFolder', 'scheduledTask', 'service', 'packagedApp'] as const;
+  store.sourceLabels = Object.fromEntries(sources.map((s) => [s, t(`care.startup.sources.${s}`)]));
   document.addEventListener('pointerdown', onDocumentPointer);
   document.addEventListener('keydown', onKey);
   void store.ensureLoaded();
@@ -223,7 +225,11 @@ const adminPromptOpen = computed({
             :class="{ off: !startsWithWindows(item), pending: store.pendingIds.includes(item.id) }"
           >
             <div class="name-cell">
-              <span class="icon" :class="{ initials: !store.icons[item.id] }" aria-hidden="true">
+              <span
+                class="icon"
+                :class="{ initials: !store.icons[item.id], plated: item.source === 'packagedApp' && store.icons[item.id] }"
+                aria-hidden="true"
+              >
                 <img v-if="store.icons[item.id]" :src="store.icons[item.id] ?? undefined" alt="" draggable="false" />
                 <template v-else>{{ initials(item.name) }}</template>
               </span>
@@ -239,7 +245,10 @@ const adminPromptOpen = computed({
                     class="badge badge-admin"
                     :title="t('care.startup.badgeHints.admin')"
                   >{{ t('care.startup.badges.admin') }}</span>
-                  <span v-if="item.isMicrosoft && !item.canToggle" class="badge badge-admin">
+                  <span v-if="isPolicyLocked(item)" class="badge badge-admin" :title="t('care.startup.badgeHints.policy')">
+                    {{ t('care.startup.badges.policy') }}
+                  </span>
+                  <span v-else-if="item.isMicrosoft && !item.canToggle" class="badge badge-admin">
                     {{ t('care.startup.badges.system') }}
                   </span>
                 </span>
@@ -574,6 +583,11 @@ const adminPromptOpen = computed({
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+/* Store logos are often white-on-transparent; draw them on a tile like Windows does. */
+.icon.plated {
+  padding: 4px;
+  background: color-mix(in oklab, var(--foreground) 62%, var(--card));
 }
 .icon.initials {
   background: color-mix(in oklab, var(--primary) 14%, var(--card));
