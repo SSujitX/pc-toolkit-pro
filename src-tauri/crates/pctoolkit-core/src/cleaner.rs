@@ -85,7 +85,17 @@ pub(crate) fn check_cancel() -> CoreResult<()> {
     }
 }
 
-pub(crate) fn acquire_busy() -> CoreResult<()> {
+/// Holds the shared cleaner / Deep Cleanup busy flag; dropping it releases the flag, so
+/// an early return or a panic (Care catches category panics) never leaves it stuck.
+pub(crate) struct BusyGuard(());
+
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        BUSY.store(false, Ordering::SeqCst);
+    }
+}
+
+pub(crate) fn acquire_busy() -> CoreResult<BusyGuard> {
     if BUSY
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
@@ -93,11 +103,7 @@ pub(crate) fn acquire_busy() -> CoreResult<()> {
         return Err(CoreError::OperationBusy);
     }
     CANCELLED.store(false, Ordering::SeqCst);
-    Ok(())
-}
-
-pub(crate) fn release_busy() {
-    BUSY.store(false, Ordering::SeqCst);
+    Ok(BusyGuard(()))
 }
 
 pub fn scan_cleanup() -> CoreResult<CleanupScan> {
@@ -108,7 +114,7 @@ pub fn scan_cleanup_with_progress<F>(mut on_progress: F) -> CoreResult<CleanupSc
 where
     F: FnMut(CleanupProgress),
 {
-    acquire_busy()?;
+    let _busy = acquire_busy()?;
     let result = (|| {
         // Scan is read-only and does not require elevation.
         let is_admin = is_user_admin();
@@ -174,7 +180,6 @@ where
             ],
         })
     })();
-    release_busy();
     result
 }
 
@@ -185,7 +190,7 @@ pub fn execute_cleanup<F>(
 where
     F: FnMut(CleanupProgress),
 {
-    acquire_busy()?;
+    let _busy = acquire_busy()?;
     let started_at_ms = history_now_ms();
     let mut source = "cleaner";
     let mut title_key = "history.titles.cleaner".to_string();
@@ -229,7 +234,7 @@ where
                 }
                 CleanerCategory::DiskCleanup => {
                     // Best-effort launch; Windows may show UAC. Do not hard-require admin up front.
-                    std::process::Command::new("cleanmgr")
+                    std::process::Command::new(pctoolkit_platform::system32_exe("cleanmgr.exe"))
                         .args(["/sagerun:1337"])
                         .spawn()
                         .map_err(|e| CoreError::OperationFailed(e.to_string()))?;
@@ -312,7 +317,6 @@ where
             detail: Some("cancelled".into()),
         });
     }
-    release_busy();
     result
 }
 
