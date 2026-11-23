@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 
 use pctoolkit_platform::{
     list_scheduled_tasks, list_services, read_registry_value, registry_key_exists,
-    registry_subkey_names, registry_values, shortcut_batch::resolve_shortcuts, user_desktop_dir,
+    registry_subkey_names, registry_value_names, registry_values, shortcut_batch::resolve_shortcuts,
+    user_desktop_dir,
     RegistryKeyPath, RegistryRoot, RegistryView,
 };
 use serde::Serialize;
@@ -52,6 +53,8 @@ pub(crate) enum LeftoverAction {
     DeleteValue(RegistryKeyPath, String),
     DeleteService(String),
     DeleteTask(String),
+    /// A Windows Prefetch trace (`%SystemRoot%\\Prefetch\\<EXE>-<hash>.pf`) of one of the program's exes.
+    DeletePrefetch(PathBuf),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,6 +86,9 @@ pub(crate) struct ProgramSnapshot {
     pub install_dir: Option<PathBuf>,
     pub uninstall_key: Option<RegistryKeyPath>,
     pub store_family_name: Option<String>,
+    /// The program's own executables (recorded before its uninstaller ran, plus the DisplayIcon /
+    /// uninstall command targets). Windows traces are matched against these exact paths.
+    pub exe_paths: Vec<PathBuf>,
 }
 
 /// Facts about everything else that stays installed.
@@ -216,6 +222,8 @@ pub(crate) fn scan_leftovers(
     scan_tasks(ctx, &mut out);
     report(&out, on_area, "firewall");
     scan_firewall(ctx, &mut out);
+    report(&out, on_area, "traces");
+    scan_windows_traces(ctx, &mut out);
     out.items
 }
 
@@ -604,6 +612,177 @@ fn scan_tasks(ctx: &ScanContext<'_>, out: &mut Collector) {
     }
 }
 
+/// Executables installers commonly share; a Prefetch name match on these says nothing about the
+/// removed program, so they are never offered.
+const GENERIC_EXE_NAMES: &[&str] = &[
+    "setup.exe", "install.exe", "installer.exe", "uninstall.exe", "uninst.exe", "uninstaller.exe",
+    "update.exe", "updater.exe", "launcher.exe", "helper.exe", "elevate.exe", "msiexec.exe",
+    "rundll32.exe", "cmd.exe", "au_.exe", "un_a.exe", "crashpad_handler.exe", "notification_helper.exe",
+    "squirrel.exe", "maintenancetool.exe",
+];
+
+fn is_generic_exe(name_lower: &str) -> bool {
+    if GENERIC_EXE_NAMES.contains(&name_lower) {
+        return true;
+    }
+    // Inno Setup uninstallers: unins000.exe, unins001.exe, ...
+    name_lower.len() == 12
+        && name_lower.starts_with("unins")
+        && name_lower.ends_with(".exe")
+        && name_lower[5..8].bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Executables of a program: hint paths (DisplayIcon, uninstall commands) plus `*.exe` files up to
+/// two levels below its install folder. Bounded so a huge folder cannot stall the uninstall.
+pub(crate) fn collect_program_exes(install_dir: Option<&Path>, hints: &[PathBuf]) -> Vec<PathBuf> {
+    const MAX_EXES: usize = 300;
+    let mut out: Vec<PathBuf> = Vec::new();
+    let mut seen = HashSet::new();
+    let mut add = |path: PathBuf, out: &mut Vec<PathBuf>| {
+        let is_exe = path
+            .extension()
+            .map(|e| e.eq_ignore_ascii_case("exe"))
+            .unwrap_or(false);
+        if is_exe && out.len() < MAX_EXES && seen.insert(path_key(&path)) {
+            out.push(path);
+        }
+    };
+    for hint in hints {
+        add(hint.clone(), &mut out);
+    }
+    if let Some(dir) = install_dir {
+        let mut stack = vec![(dir.to_path_buf(), 0u32)];
+        while let Some((current, depth)) = stack.pop() {
+            let Ok(entries) = fs::read_dir(&current) else { continue };
+            for entry in entries.flatten() {
+                let Ok(meta) = entry.metadata() else { continue };
+                if is_reparse(&meta) {
+                    continue;
+                }
+                if meta.is_dir() {
+                    if depth < 2 {
+                        stack.push((entry.path(), depth + 1));
+                    }
+                } else {
+                    add(entry.path(), &mut out);
+                }
+            }
+        }
+    }
+    out
+}
+
+/// `C:\...\App.exe` out of a trace value name (MuiCache appends `.FriendlyAppName` etc.).
+fn trace_exe_path(value_name: &str) -> Option<PathBuf> {
+    let lower = value_name.to_ascii_lowercase();
+    let end = lower.find(".exe")? + 4;
+    let candidate = &value_name[..end];
+    let bytes = candidate.as_bytes();
+    let absolute = bytes.len() > 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'\\';
+    absolute.then(|| PathBuf::from(candidate))
+}
+
+impl ScanContext<'_> {
+    /// A trace belongs to the removed program only when it names one of its exact executables (or
+    /// a file inside its own folder) and that file is gone.
+    fn owns_trace_target(&self, target: &Path) -> bool {
+        if target.exists() {
+            return false;
+        }
+        let key = path_key(target);
+        if self.program.exe_paths.iter().any(|p| path_key(p) == key) {
+            return true;
+        }
+        self.program
+            .install_dir
+            .as_ref()
+            .filter(|dir| self.path_allowed(dir))
+            .is_some_and(|dir| is_same_or_inside(target, dir))
+    }
+}
+
+/// Traces Windows keeps about programs that ran: Compatibility Assistant, compatibility layers,
+/// MuiCache display names, and Prefetch files. Only entries pointing at this program's own
+/// (now missing) executables are offered.
+fn scan_windows_traces(ctx: &ScanContext<'_>, out: &mut Collector) {
+    const APPCOMPAT: &str = "Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags";
+    let trace_keys = [
+        (RegistryRoot::CurrentUser, format!("{APPCOMPAT}\\Compatibility Assistant\\Store")),
+        (RegistryRoot::CurrentUser, format!("{APPCOMPAT}\\Layers")),
+        (RegistryRoot::LocalMachine, format!("{APPCOMPAT}\\Layers")),
+        (
+            RegistryRoot::CurrentUser,
+            "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache".to_string(),
+        ),
+    ];
+    for (root, subkey) in trace_keys {
+        let key = RegistryKeyPath::new(root, RegistryView::Native64, subkey);
+        for name in registry_value_names(&key).unwrap_or_default() {
+            let Some(target) = trace_exe_path(&name) else { continue };
+            if ctx.owns_trace_target(&target) {
+                out.push(
+                    LeftoverKind::RegistryValue,
+                    key.display(),
+                    Some(name.clone()),
+                    0,
+                    LeftoverConfidence::High,
+                    root == RegistryRoot::LocalMachine,
+                    LeftoverAction::DeleteValue(key.clone(), name),
+                );
+            }
+        }
+    }
+
+    // Prefetch: `<EXE NAME>-<8 hex>.pf`. Listing the folder needs admin; without it nothing is
+    // offered (honest skip rather than a guess).
+    let Some(dir) = prefetch_dir() else { return };
+    let wanted: HashSet<String> = ctx
+        .program
+        .exe_paths
+        .iter()
+        .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().to_ascii_lowercase()))
+        .filter(|n| !is_generic_exe(n))
+        .collect();
+    if wanted.is_empty() {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(&dir) else { return };
+    for entry in entries.flatten() {
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        let Some(exe) = prefetch_exe_name(&file_name) else { continue };
+        if !wanted.contains(&exe) {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else { continue };
+        if !meta.is_file() || is_reparse(&meta) {
+            continue;
+        }
+        let path = entry.path();
+        out.push(
+            LeftoverKind::File,
+            path.to_string_lossy().into_owned(),
+            None,
+            meta.len(),
+            LeftoverConfidence::High,
+            true,
+            LeftoverAction::DeletePrefetch(path),
+        );
+    }
+}
+
+pub(crate) fn prefetch_dir() -> Option<PathBuf> {
+    std::env::var_os("SystemRoot").map(|root| PathBuf::from(root).join("Prefetch"))
+}
+
+/// `"UNINSTALL OMNIROUTE.EXE-A9637554.pf"` → `"uninstall omniroute.exe"`.
+pub(crate) fn prefetch_exe_name(file_name: &str) -> Option<String> {
+    let lower = file_name.to_ascii_lowercase();
+    let stem = lower.strip_suffix(".pf")?;
+    let (exe, hash) = stem.rsplit_once('-')?;
+    (hash.len() == 8 && hash.bytes().all(|b| b.is_ascii_hexdigit()) && exe.ends_with(".exe"))
+        .then(|| exe.to_string())
+}
+
 fn scan_firewall(ctx: &ScanContext<'_>, out: &mut Collector) {
     let Some(dir) = ctx.program.install_dir.as_ref().filter(|d| ctx.path_allowed(d)) else { return };
     let key = RegistryKeyPath::new(
@@ -634,5 +813,33 @@ fn scan_firewall(ctx: &ScanContext<'_>, out: &mut Collector) {
                 LeftoverAction::DeleteValue(key.clone(), value.name),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod trace_tests {
+    use super::*;
+
+    #[test]
+    fn prefetch_names_parse_and_generic_exes_are_skipped() {
+        assert_eq!(
+            prefetch_exe_name("UNINSTALL OMNIROUTE.EXE-A9637554.pf").as_deref(),
+            Some("uninstall omniroute.exe")
+        );
+        assert_eq!(prefetch_exe_name("NOTEPAD.EXE-ZZZZ.pf"), None);
+        assert_eq!(prefetch_exe_name("readme.txt"), None);
+        assert!(is_generic_exe("unins000.exe"));
+        assert!(is_generic_exe("setup.exe"));
+        assert!(!is_generic_exe("uninstall omniroute.exe"));
+    }
+
+    #[test]
+    fn trace_paths_are_cut_after_exe() {
+        assert_eq!(
+            trace_exe_path(r"C:\Apps\Omni\omniroute.exe.FriendlyAppName"),
+            Some(PathBuf::from(r"C:\Apps\Omni\omniroute.exe"))
+        );
+        assert_eq!(trace_exe_path(r"relative\app.exe"), None);
+        assert_eq!(trace_exe_path(r"C:\Apps\readme.txt"), None);
     }
 }
