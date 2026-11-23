@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia';
 import { PAGE_IDS, type PageId, createSidebarLayoutState } from '@/lib/models/application-shell';
+import { appErrorCode, type AppErrorCode } from '@/lib/utils/errors';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+/** Latest error shown by the shell toast. `id` changes on every report so repeats re-show. */
+export interface AppErrorNotice {
+  id: number;
+  code: AppErrorCode;
+}
 
 function resolveTheme(theme: ThemeMode): 'light' | 'dark' {
   if (theme === 'system') {
@@ -21,7 +28,8 @@ export const useAppStore = defineStore('app', {
     /** Temporary expand while hovering an unpinned rail. */
     sidebarPeeking: false,
     busyPages: [] as PageId[],
-    lastError: null as string | null,
+    lastError: null as AppErrorNotice | null,
+    errorSeq: 0,
     mediaUnbind: null as (() => void) | null,
   }),
   getters: {
@@ -85,8 +93,15 @@ export const useAppStore = defineStore('app', {
       if (busy && !this.busyPages.includes(page)) this.busyPages.push(page);
       if (!busy) this.busyPages = this.busyPages.filter((p) => p !== page);
     },
+    /** Surface an error in the shell toast by typed code (raw messages / paths are never shown). */
     reportError(error: unknown) {
-      this.lastError = error instanceof Error ? error.message : String(error);
+      const code = appErrorCode(error);
+      if (code === 'operationCancelled') return;
+      this.errorSeq += 1;
+      this.lastError = { id: this.errorSeq, code };
+    },
+    dismissError(id?: number) {
+      if (id == null || this.lastError?.id === id) this.lastError = null;
     },
   },
 });
