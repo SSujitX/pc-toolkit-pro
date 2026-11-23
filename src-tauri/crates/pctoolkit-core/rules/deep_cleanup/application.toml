@@ -1,0 +1,470 @@
+# Deep Cleanup — application rules. Schema: see README.md in this folder.
+# Only rebuildable caches (HTTP/GPU/code/WebView caches, temp, logs, crash reports).
+# Never account, message, Local Storage, IndexedDB, or settings folders.
+
+[[rule]]
+id = "app.whatsappCache"
+group = "application"
+name_key = "deepCleaner.rules.whatsappCache"
+detail_key = "deepCleaner.rules.whatsappCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["WhatsApp.exe", "WhatsApp.Desktop.exe", "WhatsApp.Root.exe"]
+roots = [
+  { base = "local", path = "Packages", children = { contains = ["whatsapp"] }, suffixes = [
+    "LocalCache/EBWebView/ShaderCache", "LocalCache/EBWebView/GrShaderCache",
+    "LocalCache/EBWebView/GraphiteDawnCache", "LocalCache/EBWebView/DawnGraphiteCache",
+    "LocalCache/EBWebView/DawnWebGPUCache", "LocalCache/EBWebView/GPUPersistentCache",
+    "LocalCache/EBWebView/component_crx_cache", "LocalCache/EBWebView/extensions_crx_cache",
+    "LocalCache/EBWebView/Default/Cache", "LocalCache/EBWebView/Default/Code Cache",
+    "LocalCache/EBWebView/Default/GPUCache", "LocalCache/EBWebView/Default/ShaderCache",
+    "LocalCache/EBWebView/Default/DawnCache", "LocalCache/EBWebView/Default/DawnGraphiteCache",
+    "LocalCache/EBWebView/Default/DawnWebGPUCache", "LocalCache/EBWebView/Default/GrShaderCache",
+    "LocalCache/EBWebView/Default/GraphiteDawnCache", "LocalCache/EBWebView/Default/Media Cache",
+    "LocalCache/EBWebView/Default/Shared Dictionary/cache", "LocalCache/EBWebView/Profile */Cache",
+    "LocalCache/EBWebView/Profile */Code Cache", "LocalCache/EBWebView/Profile */GPUCache",
+    "LocalCache/EBWebView/Profile */ShaderCache", "LocalCache/EBWebView/Profile */DawnCache",
+    "LocalCache/EBWebView/Profile */DawnGraphiteCache", "LocalCache/EBWebView/Profile */DawnWebGPUCache",
+    "LocalCache/EBWebView/Profile */GrShaderCache", "LocalCache/EBWebView/Profile */GraphiteDawnCache",
+    "LocalCache/EBWebView/Profile */Media Cache", "LocalCache/EBWebView/Profile */Shared Dictionary/cache",
+    "TempState",
+  ] },
+]
+
+[[rule]]
+id = "app.telegramTemp"
+group = "application"
+name_key = "deepCleaner.rules.telegramTemp"
+detail_key = "deepCleaner.rules.telegramTempDetail"
+risk = "safe"
+recommended = true
+processes = ["Telegram.exe"]
+roots = [
+  { base = "roaming", path = "Telegram Desktop/tdata/temp" },
+  { base = "roaming", path = "Telegram Desktop/tdata/dumps" },
+]
+
+[[rule]]
+id = "app.discordCache"
+group = "application"
+name_key = "deepCleaner.rules.discordCache"
+detail_key = "deepCleaner.rules.discordCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["Discord.exe"]
+roots = [
+  { base = "roaming", path = "discord", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.steamCache"
+group = "application"
+name_key = "deepCleaner.rules.steamCache"
+detail_key = "deepCleaner.rules.steamCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["steam.exe", "steamwebhelper.exe"]
+roots = [
+  { base = "local", path = "Steam/htmlcache", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+# New Teams (MSIX, WebView2) plus the classic Electron client under Roaming.
+[[rule]]
+id = "app.teamsCache"
+group = "application"
+name_key = "deepCleaner.rules.teamsCache"
+detail_key = "deepCleaner.rules.teamsCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["ms-teams.exe", "Teams.exe"]
+roots = [
+  { base = "local", path = "Packages", children = { contains = ["msteams"] }, suffixes = [
+    "LocalCache/Microsoft/MSTeams/EBWebView/ShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/GrShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/GraphiteDawnCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/DawnGraphiteCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/DawnWebGPUCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/GPUPersistentCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/component_crx_cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/extensions_crx_cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/Code Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/GPUCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/ShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/DawnCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/DawnGraphiteCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/DawnWebGPUCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/GrShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/GraphiteDawnCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/Media Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Default/Shared Dictionary/cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */Code Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */GPUCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */ShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */DawnCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */DawnGraphiteCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */DawnWebGPUCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */GrShaderCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */GraphiteDawnCache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */Media Cache",
+    "LocalCache/Microsoft/MSTeams/EBWebView/Profile */Shared Dictionary/cache",
+  ] },
+  { base = "roaming", path = "Microsoft/Teams", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "app.spotifyCache"
+group = "application"
+name_key = "deepCleaner.rules.spotifyCache"
+detail_key = "deepCleaner.rules.spotifyCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Spotify.exe"]
+roots = [
+  { base = "local", path = "Spotify", suffixes = [
+    "Browser/Cache", "Browser/Code Cache", "Browser/GPUCache", "Browser/ShaderCache", "Browser/DawnCache",
+    "Browser/DawnGraphiteCache", "Browser/DawnWebGPUCache", "Browser/GrShaderCache",
+    "Browser/GraphiteDawnCache", "Browser/Shared Dictionary/cache", "Storage/Cache", "Storage/Code Cache",
+    "Storage/GPUCache", "Storage/ShaderCache", "Default/Cache", "Default/Code Cache", "Default/GPUCache",
+    "Default/ShaderCache", "Default/DawnCache", "Default/DawnGraphiteCache", "Default/DawnWebGPUCache",
+    "Default/GrShaderCache", "Default/GraphiteDawnCache", "Default/Shared Dictionary/cache", "ShaderCache",
+    "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache", "GPUPersistentCache",
+    "component_crx_cache", "extensions_crx_cache",
+  ] },
+]
+
+[[rule]]
+id = "app.slackCache"
+group = "application"
+name_key = "deepCleaner.rules.slackCache"
+detail_key = "deepCleaner.rules.slackCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["slack.exe"]
+roots = [
+  { base = "roaming", path = "Slack", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.notionCache"
+group = "application"
+name_key = "deepCleaner.rules.notionCache"
+detail_key = "deepCleaner.rules.notionCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Notion.exe"]
+roots = [
+  { base = "roaming", path = "Notion", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.dockerDesktopCache"
+group = "application"
+name_key = "deepCleaner.rules.dockerDesktopCache"
+detail_key = "deepCleaner.rules.dockerDesktopCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Docker Desktop.exe"]
+roots = [
+  { base = "roaming", path = "Docker Desktop", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "app.figmaCache"
+group = "application"
+name_key = "deepCleaner.rules.figmaCache"
+detail_key = "deepCleaner.rules.figmaCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Figma.exe"]
+roots = [
+  { base = "roaming", path = "Figma", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.obsidianCache"
+group = "application"
+name_key = "deepCleaner.rules.obsidianCache"
+detail_key = "deepCleaner.rules.obsidianCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Obsidian.exe"]
+roots = [
+  { base = "roaming", path = "obsidian", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.insomniaCache"
+group = "application"
+name_key = "deepCleaner.rules.insomniaCache"
+detail_key = "deepCleaner.rules.insomniaCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Insomnia.exe"]
+roots = [
+  { base = "roaming", path = "Insomnia", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.githubDesktopCache"
+group = "application"
+name_key = "deepCleaner.rules.githubDesktopCache"
+detail_key = "deepCleaner.rules.githubDesktopCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["GitHubDesktop.exe"]
+roots = [
+  { base = "roaming", path = "GitHub Desktop", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.postmanCache"
+group = "application"
+name_key = "deepCleaner.rules.postmanCache"
+detail_key = "deepCleaner.rules.postmanCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Postman.exe"]
+roots = [
+  { base = "roaming", path = "Postman", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+  { base = "roaming", path = "Postman/Partitions", children = { all = true }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "app.signalCache"
+group = "application"
+name_key = "deepCleaner.rules.signalCache"
+detail_key = "deepCleaner.rules.signalCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Signal.exe"]
+roots = [
+  { base = "roaming", path = "Signal", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+]
+
+[[rule]]
+id = "app.dropboxCache"
+group = "application"
+name_key = "deepCleaner.rules.dropboxCache"
+detail_key = "deepCleaner.rules.dropboxCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Dropbox.exe"]
+roots = [
+  { base = "roaming", path = "Dropbox", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+# No close list: claude.exe is also the Claude Code CLI image name, and closing it
+# would end terminal sessions. Locked files are reported as busy instead.
+[[rule]]
+id = "app.claudeCache"
+group = "application"
+name_key = "deepCleaner.rules.claudeCache"
+detail_key = "deepCleaner.rules.claudeCacheDetail"
+risk = "safe"
+recommended = false
+roots = [
+  { base = "roaming", path = "Claude", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+  { base = "local", path = "Packages/Claude_*/LocalCache/Roaming/Claude", suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache", "logs", "Crashpad/reports",
+  ] },
+  { base = "local", path = "Packages/Claude_*/LocalCache/Local/Claude", suffixes = [
+    "logs",
+  ] },
+]
+
+# Codex desktop embeds a Chromium user-data folder under Roaming/Codex/web.
+# No close list: codex.exe is also the Codex CLI image name.
+[[rule]]
+id = "app.codexCache"
+group = "application"
+name_key = "deepCleaner.rules.codexCache"
+detail_key = "deepCleaner.rules.codexCacheDetail"
+risk = "safe"
+recommended = false
+roots = [
+  { base = "roaming", path = "Codex/web/Codex", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "roaming", path = "Codex/web/Codex", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Codex/Logs" },
+]
+
+[[rule]]
+id = "app.battleNetCache"
+group = "application"
+name_key = "deepCleaner.rules.battleNetCache"
+detail_key = "deepCleaner.rules.battleNetCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Battle.net.exe"]
+roots = [
+  { base = "local", path = "Battle.net/Cache" },
+  { base = "local", path = "Battle.net/BrowserCaches", children = { all = true }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+# Only Chromium cache leaves inside the EA app CEF folder; its login state is kept.
+[[rule]]
+id = "app.eaDesktopCache"
+group = "application"
+name_key = "deepCleaner.rules.eaDesktopCache"
+detail_key = "deepCleaner.rules.eaDesktopCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["EADesktop.exe"]
+roots = [
+  { base = "local", path = "Electronic Arts/EA Desktop/CEF", suffixes = [
+    "BrowserCache/Cache", "BrowserCache/Code Cache", "BrowserCache/GPUCache", "BrowserCache/ShaderCache",
+    "BrowserCache/DawnCache", "BrowserCache/DawnGraphiteCache", "BrowserCache/DawnWebGPUCache",
+    "BrowserCache/GrShaderCache", "BrowserCache/GraphiteDawnCache", "BrowserCache/Shared Dictionary/cache",
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+]
+
+# Chromium leaves inside webcache_* only: their Cookies / Local Storage keep the sign-in.
+[[rule]]
+id = "app.epicLauncherCache"
+group = "application"
+name_key = "deepCleaner.rules.epicLauncherCache"
+detail_key = "deepCleaner.rules.epicLauncherCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["EpicGamesLauncher.exe", "EpicWebHelper.exe"]
+roots = [
+  { base = "local", path = "EpicGamesLauncher/Saved", children = { prefixes = ["webcache"] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "EpicGamesLauncher/Saved/Logs" },
+  { base = "local", path = "EpicGamesLauncher/Saved/Crashes" },
+]
+
+# Conformed audio / peak / index files; Premiere, After Effects, and Media Encoder
+# rebuild them on next import, which can take a while for large projects.
+[[rule]]
+id = "app.adobeMediaCache"
+group = "application"
+name_key = "deepCleaner.rules.adobeMediaCache"
+detail_key = "deepCleaner.rules.adobeMediaCacheDetail"
+risk = "recoverable"
+recommended = false
+processes = ["Adobe Premiere Pro.exe", "AfterFX.exe", "Adobe Media Encoder.exe", "Adobe Audition.exe"]
+roots = [
+  { base = "roaming", path = "Adobe/Common", suffixes = [
+    "Media Cache Files", "Media Cache",
+  ] },
+  { base = "local", path = "Adobe/Common", suffixes = [
+    "Media Cache Files", "Media Cache",
+  ] },
+]
+
+[[rule]]
+id = "app.zoomLogs"
+group = "application"
+name_key = "deepCleaner.rules.zoomLogs"
+detail_key = "deepCleaner.rules.zoomLogsDetail"
+risk = "safe"
+recommended = true
+matcher = { older_than_days = 14 }
+roots = [
+  { base = "roaming", path = "Zoom/logs" },
+]
+
+[[rule]]
+id = "app.obsLogs"
+group = "application"
+name_key = "deepCleaner.rules.obsLogs"
+detail_key = "deepCleaner.rules.obsLogsDetail"
+risk = "safe"
+recommended = true
+matcher = { older_than_days = 14 }
+roots = [
+  { base = "roaming", path = "obs-studio", suffixes = [
+    "logs", "crashes",
+  ] },
+]
+
+# Downloaded album art and crash dumps. Playlists, media library, and vlcrc are kept.
+[[rule]]
+id = "app.vlcCache"
+group = "application"
+name_key = "deepCleaner.rules.vlcCache"
+detail_key = "deepCleaner.rules.vlcCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["vlc.exe"]
+roots = [
+  { base = "roaming", path = "vlc", suffixes = [
+    "art", "crashdump",
+  ] },
+]
+
+# electron-updater download folders (%LOCALAPPDATA%\<app>-updater): only the
+# pending update payload and the cached installer / blockmap. The app downloads
+# them again on its next update check.
+[[rule]]
+id = "app.electronUpdaterCache"
+group = "application"
+name_key = "deepCleaner.rules.electronUpdaterCache"
+detail_key = "deepCleaner.rules.electronUpdaterCacheDetail"
+risk = "recoverable"
+recommended = false
+matcher = { any_of = [{ path_segments = ["pending"] }, { name_glob = ["installer.exe", "*.blockmap"] }], max_depth = 1 }
+roots = [
+  { base = "local", children = { contains = ["-updater"] } },
+]
