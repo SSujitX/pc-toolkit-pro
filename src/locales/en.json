@@ -15,7 +15,9 @@
     "groups": {
       "cleanup": "Cleanup",
       "system": "System"
-    }
+    },
+    "uninstaller": "Uninstaller",
+    "care": "PC Care"
   },
   "common": {
     "expandSidebar": "Pin sidebar open",
@@ -31,10 +33,18 @@
     "loading": "Loading…",
     "busy": "Working…",
     "adminRequired": "Administrator rights required",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "elapsedSeconds": "{count} sec"
   },
   "titlebar": {
-    "optimizeMemory": "Memory {percent}% used — click to optimize"
+    "optimizeMemory": "Memory {percent}% used — click to optimize",
+    "uptime": "Uptime",
+    "uptimeHint": "System uptime",
+    "systemDisk": "Local Disk (C:)",
+    "diskAvailable": "{size} available",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close"
   },
   "monitor": {
     "title": "System",
@@ -155,6 +165,235 @@
       "cancelled": "Cancelled"
     }
   },
+  "uninstaller": {
+    "title": "Uninstaller",
+    "subtitle": "Remove programs and Store apps, then clean the files and registry entries they leave behind",
+    "refresh": "Refresh",
+    "searchPlaceholder": "Search programs, publishers, or versions",
+    "sortLabel": "Sort",
+    "sort": {
+      "name": "Name",
+      "size": "Size",
+      "date": "Install date",
+      "publisher": "Publisher"
+    },
+    "showRuntimes": "Show runtimes",
+    "showRuntimesHint": "Runtimes such as Visual C++, .NET, and WebView2 are used by other programs and are hidden by default.",
+    "filters": {
+      "all": "All",
+      "desktop": "Desktop programs",
+      "store": "Store apps",
+      "recent": "Recently installed",
+      "large": "Large programs"
+    },
+    "summaryCount": "{count} program | {count} programs",
+    "summarySize": "using",
+    "unknownSize": "—",
+    "unknownDate": "—",
+    "columns": {
+      "name": "Name",
+      "size": "Size",
+      "installed": "Installed"
+    },
+    "badges": {
+      "store": "Store",
+      "admin": "All users",
+      "runtime": "Runtime",
+      "quiet": "Quick"
+    },
+    "badgeHints": {
+      "admin": "Installed for all users — removing it and its leftovers usually needs administrator rights.",
+      "quiet": "Supports quick uninstall without the vendor's prompts."
+    },
+    "uninstall": "Uninstall",
+    "uninstallSelected": "Uninstall selected",
+    "selectedSummary": "{count} selected",
+    "selectedSize": "Estimated",
+    "selectAllVisible": "Select all shown",
+    "clearSelection": "Clear selection",
+    "loadingTitle": "Reading installed programs",
+    "emptyTitle": "No programs match",
+    "emptyBody": "Try another search or filter.",
+    "storeUnavailable": "Store apps could not be listed on this system. Desktop programs are complete.",
+    "confirm": {
+      "titleOne": "Uninstall {name}?",
+      "titleMany": "Uninstall {count} program? | Uninstall {count} programs?",
+      "body": "Each program's own uninstaller runs one at a time. Afterwards PC Toolkit Pro scans for leftovers and lets you review them before anything is deleted.",
+      "quiet": "Quick uninstall",
+      "quietHint": "Skip the vendor's prompts when the installer supports it (MSI, Inno Setup, NSIS, Squirrel, or a vendor quiet command). Others run normally.",
+      "scanLeftovers": "Scan for leftovers afterwards",
+      "scanLeftoversHint": "Find remaining folders, registry entries, shortcuts, startup entries, services, scheduled tasks, and firewall rules.",
+      "restorePoint": "Create a restore point first",
+      "restorePointHint": "Lets you roll Windows back if something goes wrong. Windows creates at most one restore point per day.",
+      "restorePointNeedsAdmin": "Requires running PC Toolkit Pro as administrator.",
+      "forceTitle": "Uninstaller missing or broken?",
+      "forceBody": "Force remove skips the program's uninstaller and scans for everything it owns, including its folder and uninstall entry. Review the results before deleting.",
+      "force": "Force remove",
+      "start": "Start uninstall",
+      "back": "Back",
+      "adminHint": "Some selected programs are installed for all users. Without administrator rights their leftovers in Program Files, ProgramData, and machine-wide registry keys are skipped. Restart as administrator first for a complete cleanup.",
+      "restartAdmin": "Restart as administrator"
+    },
+    "progress": {
+      "area": "Checking",
+      "areas": {
+        "folders": "Folders",
+        "registry": "Registry",
+        "shortcuts": "Shortcuts",
+        "startup": "Startup entries",
+        "services": "Services",
+        "tasks": "Scheduled tasks",
+        "firewall": "Firewall rules"
+      }
+    },
+    "leftovers": {
+      "title": "Leftovers found",
+      "forcedTitle": "Everything owned by this program",
+      "summary": "{count} item | {count} items",
+      "summarySize": "taking",
+      "groups": {
+        "files": "Files & folders",
+        "registry": "Registry",
+        "shortcuts": "Shortcuts",
+        "startup": "Startup",
+        "system": "Services & tasks"
+      },
+      "kinds": {
+        "folder": "Folder",
+        "file": "File",
+        "registryKey": "Registry key",
+        "registryValue": "Registry value",
+        "shortcut": "Shortcut",
+        "startupEntry": "Startup entry",
+        "service": "Service",
+        "scheduledTask": "Scheduled task",
+        "firewallRule": "Firewall rule"
+      },
+      "review": "Review",
+      "reviewHint": "Matched by name only. Check that it belongs to the removed program before deleting.",
+      "admin": "Admin",
+      "adminHint": "Needs administrator rights. Skipped when PC Toolkit Pro is not elevated.",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "footerSelected": "{count} selected",
+      "delete": "Delete selected",
+      "skip": "Keep everything",
+      "adminNotice": "Some selected items need administrator rights and will be skipped.",
+      "restartAdmin": "Restart as administrator",
+      "confirmTitle": "Delete {count} leftover item? | Delete {count} leftover items?",
+      "confirmBody": "Files and folders are moved to the Recycle Bin. Registry entries are exported to a .reg backup in the PC Toolkit Pro data folder before they are deleted.",
+      "confirmAction": "Delete leftovers"
+    },
+    "summary": {
+      "title": "Uninstall summary",
+      "done": "Done",
+      "status": {
+        "completed": "Uninstalled",
+        "completedRebootRequired": "Uninstalled — restart to finish",
+        "stillInstalled": "Still installed (the uninstaller was cancelled or failed)",
+        "cancelled": "Stopped waiting — the uninstaller may still be running",
+        "launchDenied": "Administrator permission was declined",
+        "failed": "The uninstaller could not be started"
+      },
+      "restorePoint": {
+        "created": "Restore point created",
+        "notCreated": "Windows did not create a restore point (System Restore off or one already made today)",
+        "skippedNeedAdmin": "Restore point skipped — needs administrator rights",
+        "failed": "Restore point failed"
+      },
+      "noLeftovers": "No leftovers found.",
+      "leftoversKept": "Leftovers were kept.",
+      "cleanResult": "Removed {removed} item · freed {bytes} | Removed {removed} items · freed {bytes}",
+      "pendingReboot": "{count} locked item will be deleted at the next restart. | {count} locked items will be deleted at the next restart.",
+      "skippedAdmin": "{count} item skipped — needs administrator rights. | {count} items skipped — need administrator rights.",
+      "failed": "{count} item could not be removed (in use or access denied). | {count} items could not be removed (in use or access denied).",
+      "backupSaved": "Registry backups were saved in the PC Toolkit Pro data folder (uninstaller-backups).",
+      "openBackups": "Open data folder",
+      "leftoversCleaned": "Leftovers cleaned"
+    },
+    "dialog": {
+      "steps": {
+        "restorePoint": "Restore point",
+        "uninstall": "Uninstall",
+        "scan": "Scan leftovers",
+        "review": "Clean"
+      },
+      "queue": "Program {index} of {total}",
+      "uninstallingTitle": "Uninstalling {name}",
+      "scanningTitle": "Scanning leftovers of {name}",
+      "restorePointTitle": "Creating a restore point",
+      "cleaningTitle": "Removing leftovers",
+      "restorePointBody": "Windows is saving a restore point so you can roll back if needed. This can take a minute.",
+      "waitingTitle": "The uninstaller needs you",
+      "waitingBody": "{name}'s uninstaller window is open. Follow its steps (for example, click Uninstall or Next) to finish.",
+      "showUninstaller": "Show uninstaller window",
+      "runningBody": "Running the program's uninstaller…",
+      "autoContinue": "PC Toolkit Pro continues automatically when the uninstaller finishes, then scans for leftovers.",
+      "found": "{count} leftover item found | {count} leftover items found",
+      "cleanCount": "{done} of {total} items processed",
+      "removing": "Removing",
+      "stopWaiting": "Stop waiting",
+      "itemStatus": {
+        "removed": "Removed",
+        "notFound": "Already gone",
+        "pendingReboot": "On restart",
+        "skippedNeedAdmin": "Needs admin",
+        "backupFailed": "Backup failed",
+        "failed": "Failed"
+      },
+      "status": {
+        "restorePoint": "Preparing",
+        "uninstalling": "Uninstalling",
+        "waiting": "Waiting for you",
+        "scanning": "Scanning",
+        "cleaning": "Cleaning"
+      },
+      "source": {
+        "uninstaller": "Uninstalling from",
+        "scanning": "Scanning",
+        "removing": "Removing",
+        "restorePoint": "System Restore",
+        "starting": "Starting…"
+      },
+      "stats": {
+        "elapsed": "Elapsed",
+        "state": "Status",
+        "running": "Running",
+        "waiting": "Needs input",
+        "processes": "Uninstaller processes",
+        "areas": "Areas checked",
+        "found": "Items found",
+        "processed": "Processed",
+        "issues": "Issues"
+      },
+      "scanHint": "Scanning only reads; nothing is removed until you confirm.",
+      "cleanHint": "Files go to the Recycle Bin and registry keys are backed up first."
+    },
+    "removed": {
+      "title": "{count} program was removed by another uninstaller | {count} programs were removed by another uninstaller",
+      "body": "They were uninstalled outside PC Toolkit Pro (for example from Windows Settings) and may have left files and registry entries behind.",
+      "scan": "Scan leftovers",
+      "dismiss": "Dismiss"
+    },
+    "listing": {
+      "status": "Loading…",
+      "found": "Programs found",
+      "checked": "Entries read",
+      "hint": "Listing only reads program information; nothing is changed.",
+      "stage": {
+        "registry": "Reading",
+        "desktop": "Reading program",
+        "store": "Reading",
+        "done": "Finishing"
+      },
+      "detail": {
+        "registry": "Windows uninstall registry (all users + you)",
+        "desktop": "Desktop programs",
+        "store": "Microsoft Store apps",
+        "done": "Sorting the list"
+      }
+    }
+  },
   "deepCleaner": {
     "title": "Deep Cleanup",
     "subtitle": "Scan first, then confirm what to remove",
@@ -186,34 +425,35 @@
     "selected": "Selected",
     "estimated": "Estimated",
     "estimatedRelease": "Estimated release",
-    "summaryCount": "Found {count} cleanable items",
+    "summaryCount": "Found {count} cleanable item | Found {count} cleanable items",
     "summarySpace": "estimated cleanable data",
-    "categoryItems": "{count} items",
+    "categoryItems": "{count} item | {count} items",
     "selectedOf": "Selected / Cleanable items {selected} / {total}",
     "selectedLabel": "Selected",
     "cleanableLabel": "Cleanable items",
     "selectAll": "Select all",
     "deselectAll": "Deselect all",
     "clean": "Clean",
-    "confirmClean": "Clean {count} selected items and free about {bytes}?",
+    "confirmClean": "Clean {count} selected item and free about {bytes}? | Clean {count} selected items and free about {bytes}?",
     "result": "Freed {bytes} · {files} items",
     "empty": "Run a scan to see reclaimable items",
     "emptyClean": "No reclaimable cache data found on this PC.",
-    "footerSelected": "Selected items {count} items",
+    "footerSelected": "Selected {count} item | Selected {count} items",
     "footerEstimate": "Estimated space to free",
     "selectionLabel": "Selection",
     "selection": {
       "smart": "Smart recommendation",
       "all": "Select all",
-      "none": "Select none"
+      "none": "Select none",
+      "manual": "Custom"
     },
     "confirm": {
       "title": "Confirm cleanup",
-      "selectedCount": "{count} items selected",
+      "selectedCount": "{count} item selected | {count} items selected",
       "estimated": "Estimated cleanable data",
       "closeAppsHint": "Save your work first. Selected apps close before cleanup; items still in use are skipped",
       "closeAppsTitle": "Close running apps (optional)",
-      "relatedProcess": "{count} related process · {name}",
+      "relatedProcess": "{count} related process · {name} | {count} related processes · {name}",
       "closingApps": "Closing apps…",
       "closeAndContinue": "Close {count} and continue",
       "startCleanup": "Start cleanup",
@@ -221,13 +461,17 @@
       "forceBody": "Force close remaining apps, or continue and skip locked files.",
       "forceAndContinue": "Force close and continue",
       "skipAndContinue": "Skip and continue",
-      "back": "Back to selection"
+      "back": "Back to selection",
+      "needsAdminNote": "Needs administrator — skipped until you restart as administrator",
+      "limitedNote": "Very large — estimate is a lower bound"
     },
     "groups": {
       "system": "System caches",
       "application": "Application caches",
       "browser": "Browser data",
-      "development": "Developer tools"
+      "development": "Developer tools",
+      "projects": "Project artifacts",
+      "ai": "AI tools"
     },
     "rules": {
       "recycleBin": "Recycle Bin",
@@ -243,7 +487,7 @@
       "errorReports": "Windows error reports",
       "errorReportsDetail": "Windows continues to work, but removed reports are no longer available for troubleshooting.",
       "deliveryOptimization": "Delivery Optimization cache",
-      "deliveryOptimizationDetail": "Windows Delivery Optimization peer cache. Denied paths are skipped.",
+      "deliveryOptimizationDetail": "Update files Windows shares with other PCs, removed through Windows Disk Cleanup.",
       "windowsUpdateCleanup": "Windows Update download cache",
       "windowsUpdateCleanupDetail": "Downloaded Windows Update packages under SoftwareDistribution. Cleaning usually needs administrator. Windows may re-download updates.",
       "previousInstallations": "Previous Windows installation",
@@ -285,7 +529,7 @@
       "operaCache": "Opera cache",
       "operaCacheDetail": "Opera and Opera GX caches. Passwords, history, and bookmarks are kept. Close the browser first.",
       "firefoxCache": "Firefox browser cache",
-      "firefoxCacheDetail": "Firefox cache2 and shader cache across profiles.",
+      "firefoxCacheDetail": "Firefox cache2, startup, and shader caches across profiles. Bookmarks and logins are kept.",
       "npmCache": "npm download cache",
       "npmCacheDetail": "npm package download cache. Packages may be downloaded again.",
       "pnpmStore": "pnpm store cache",
@@ -308,23 +552,206 @@
       "gradleCachesDetail": "Gradle caches, daemon, workers, and notifications under .gradle.",
       "mavenRepository": "Maven local repository",
       "mavenRepositoryDetail": "Local Maven .m2/repository artifacts. Builds may download packages again.",
-      "condaPkgs": "Conda package cache",
-      "condaPkgsDetail": "Conda / Miniconda / Anaconda package caches. Environments are kept.",
       "jetbrainsCaches": "JetBrains IDE caches",
       "jetbrainsCachesDetail": "JetBrains and Android Studio caches, indexes, logs, and compile-server folders. Indexes may rebuild.",
       "vsCache": "Visual Studio cache",
-      "vsCacheDetail": "Visual Studio ComponentModelCache folders.",
+      "vsCacheDetail": "Visual Studio component, MEF, and image caches. Settings, extensions, and installer packages are kept.",
       "nodeTooling": "Node.js tooling cache",
-      "nodeToolingDetail": "node-gyp, Corepack, and Electron download caches.",
+      "nodeToolingDetail": "node-gyp, Corepack, Electron, and electron-builder download caches.",
       "playwrightCache": "Browser test runtimes",
-      "playwrightCacheDetail": "Playwright, Cypress, and Puppeteer browser downloads. They can be re-downloaded.",
+      "playwrightCacheDetail": "Playwright, Cypress, Puppeteer, and Selenium browser and driver downloads. They can be re-downloaded.",
       "androidCache": "Android SDK caches",
       "androidCacheDetail": "Android SDK temp/cache and user .android build caches. SDKs and AVDs are kept.",
       "editorCache": "Code editor caches",
-      "editorCacheDetail": "VS Code, Cursor, VSCodium, and Windsurf Cache/CachedData/GPUCache/logs. Settings and extensions stay."
+      "editorCacheDetail": "VS Code, Cursor, VSCodium, and Windsurf Cache/CachedData/GPUCache/logs. Settings and extensions stay.",
+      "systemErrorReports": "System error reports",
+      "systemErrorReportsDetail": "Machine-wide Windows Error Reporting queue and archive. Cleaning needs administrator.",
+      "windowsLogs": "Old Windows log files",
+      "windowsLogsDetail": "Setup, servicing, and diagnostic logs older than 3 days in the Windows Logs, Panther, and LogFiles folders. Needs administrator; logs are no longer available for troubleshooting.",
+      "arcCache": "Arc cache",
+      "arcCacheDetail": "Passwords, cookies, history, extensions, and bookmarks are kept. Close the browser first.",
+      "duckduckgoCache": "DuckDuckGo browser cache",
+      "duckduckgoCacheDetail": "WebView2 caches of the DuckDuckGo browser. Bookmarks, passwords, and history are kept. Close the browser first.",
+      "floorpCache": "Floorp cache",
+      "floorpCacheDetail": "Floorp cache2, startup, and shader caches across profiles. Bookmarks and logins are kept.",
+      "librewolfCache": "LibreWolf cache",
+      "librewolfCacheDetail": "LibreWolf cache2, startup, and shader caches across profiles. Bookmarks and logins are kept.",
+      "waterfoxCache": "Waterfox cache",
+      "waterfoxCacheDetail": "Waterfox cache2, startup, and shader caches across profiles. Bookmarks and logins are kept.",
+      "thunderbirdCache": "Thunderbird cache",
+      "thunderbirdCacheDetail": "Thunderbird web-content, startup, and shader caches. Mail, accounts, and address books are kept.",
+      "figmaCache": "Figma cache",
+      "figmaCacheDetail": "Figma desktop GPU, code, and HTTP caches plus logs. Files and sign-in are kept. Close Figma first.",
+      "obsidianCache": "Obsidian cache",
+      "obsidianCacheDetail": "Obsidian app GPU, code, and HTTP caches. Vaults, plugins, and settings are kept. Close Obsidian first.",
+      "insomniaCache": "Insomnia cache",
+      "insomniaCacheDetail": "Insomnia GPU, code, and HTTP caches plus logs. Collections and environments are kept. Close Insomnia first.",
+      "githubDesktopCache": "GitHub Desktop cache",
+      "githubDesktopCacheDetail": "GitHub Desktop GPU, code, and HTTP caches plus logs. Repositories and sign-in are kept. Close GitHub Desktop first.",
+      "postmanCache": "Postman cache",
+      "postmanCacheDetail": "Postman GPU, code, and HTTP caches plus logs. Collections, workspaces, and sign-in are kept. Close Postman first.",
+      "signalCache": "Signal cache",
+      "signalCacheDetail": "Signal desktop GPU, code, and HTTP caches plus logs. Messages, attachments, and the account are kept. Close Signal first.",
+      "dropboxCache": "Dropbox app cache",
+      "dropboxCacheDetail": "Dropbox desktop rendering caches only. Synced files are never touched. Close Dropbox first.",
+      "claudeCache": "Claude desktop cache",
+      "claudeCacheDetail": "Claude desktop GPU, code, and HTTP caches plus logs. Chats, settings, and sign-in are kept. Close the Claude app first.",
+      "codexCache": "Codex desktop cache",
+      "codexCacheDetail": "Codex desktop browser caches and logs. Sessions, settings, and sign-in are kept. Close the Codex app first.",
+      "battleNetCache": "Battle.net cache",
+      "battleNetCacheDetail": "Battle.net launcher and browser caches. Installed games and sign-in are kept. Close Battle.net first.",
+      "eaDesktopCache": "EA app cache",
+      "eaDesktopCacheDetail": "EA app browser caches. Installed games and sign-in are kept. Close the EA app first.",
+      "epicLauncherCache": "Epic Games Launcher cache",
+      "epicLauncherCacheDetail": "Epic Games Launcher web caches, logs, and crash reports. Installed games and sign-in are kept. Close the launcher first.",
+      "adobeMediaCache": "Adobe media cache",
+      "adobeMediaCacheDetail": "Premiere Pro, After Effects, and Media Encoder media cache files. They are rebuilt on next import, which can take time for large projects.",
+      "zoomLogs": "Old Zoom logs",
+      "zoomLogsDetail": "Zoom log files older than 14 days. Meetings, recordings, and settings are kept.",
+      "obsLogs": "Old OBS Studio logs",
+      "obsLogsDetail": "OBS Studio logs and crash reports older than 14 days. Scenes, profiles, and recordings are kept.",
+      "vlcCache": "VLC cache",
+      "vlcCacheDetail": "Downloaded album art and crash dumps. Playlists, media library, and preferences are kept.",
+      "electronUpdaterCache": "App update downloads",
+      "electronUpdaterCacheDetail": "Pending update packages and cached installers in app updater folders. Apps download them again on their next update check.",
+      "bunCache": "Bun install cache",
+      "bunCacheDetail": "Bun package download cache. Packages may be downloaded again.",
+      "denoCache": "Deno cache",
+      "denoCacheDetail": "Deno remote module, npm, and compile caches. Installed scripts are kept; modules may download again.",
+      "composerCache": "Composer cache",
+      "composerCacheDetail": "PHP Composer package and metadata cache. Composer settings and credentials are kept.",
+      "vcpkgArchives": "vcpkg binary cache",
+      "vcpkgArchivesDetail": "vcpkg prebuilt package archives. Libraries may be rebuilt from source, which can take a long time.",
+      "sccacheCache": "sccache compiler cache",
+      "sccacheCacheDetail": "Shared compilation cache for Rust and C/C++. The next build may be slower.",
+      "ccacheCache": "ccache compiler cache",
+      "ccacheCacheDetail": "C/C++ compiler cache. ccache.conf is kept; the next build may be slower.",
+      "terraformPluginCache": "Terraform plugin cache",
+      "terraformPluginCacheDetail": "Shared Terraform provider plugin cache. Providers may download again on init.",
+      "poetryCache": "Poetry cache",
+      "poetryCacheDetail": "Poetry package artifacts and metadata cache. Poetry virtual environments are kept.",
+      "pyenvCache": "pyenv-win installer cache",
+      "pyenvCacheDetail": "Downloaded Python installers. Installed Python versions are kept.",
+      "pythonToolCaches": "Python linter caches",
+      "pythonToolCachesDetail": "Global Ruff and mypy caches. Results are recomputed on the next run.",
+      "preCommitCache": "pre-commit cache",
+      "preCommitCacheDetail": "pre-commit hook environments. They are rebuilt on the next commit, which may take a while.",
+      "hexCache": "Hex cache",
+      "hexCacheDetail": "Elixir Hex package cache. Packages may download again.",
+      "sbtIvyCache": "sbt and Ivy caches",
+      "sbtIvyCacheDetail": "sbt boot/preloaded folders and the Ivy cache. Dependencies may download again.",
+      "dartServerCache": "Dart analysis server cache",
+      "dartServerCacheDetail": "Dart and Flutter analysis server cache. Indexes rebuild when the editor opens a project.",
+      "copilotCliLeftovers": "Copilot CLI leftovers",
+      "copilotCliLeftoversDetail": "Interrupted GitHub Copilot CLI package extractions. The installed CLI is kept.",
+      "huggingfaceXetCache": "Hugging Face Xet cache",
+      "huggingfaceXetCacheDetail": "Xet chunk and shard caches and logs. Downloaded models and in-progress transfers are kept; data may download again."
     },
     "adminRequired": "Admin",
-    "adminRequiredHint": "Cleaning this item needs administrator. Scan can still estimate size; clean is skipped until elevated."
+    "adminRequiredHint": "Cleaning this item needs administrator. Scan can still estimate size; clean is skipped until elevated.",
+    "status": {
+      "closeApp": "Close {app} first",
+      "closeAppHint": "{app} is running. Close it (or let Clean close it) so its cache can be removed.",
+      "needsAdmin": "Needs admin",
+      "limited": "Limited",
+      "limitedHint": "This folder is very large. Scanning stopped at the safety limit, so the size shown is a lower bound."
+    },
+    "execStatus": {
+      "completed": "Cleaned",
+      "partial": "Partly cleaned",
+      "blocked": "Blocked",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "special": {
+      "defenderCache": "Microsoft Defender scan cache",
+      "defenderCacheDetail": "Temporary files Microsoft Defender keeps after scans, removed through Windows Disk Cleanup. Protection and definitions are kept.",
+      "temporarySetupFiles": "Temporary setup files",
+      "temporarySetupFilesDetail": "Files left behind by Windows and app installers, removed through Windows Disk Cleanup. Requires administrator.",
+      "updateCleanup": "Windows Update cleanup",
+      "updateCleanupDetail": "Superseded update components kept by Windows servicing, removed through Windows Disk Cleanup. Installed updates can no longer be uninstalled afterwards. Requires administrator.",
+      "dockerBuildCache": "Docker build cache",
+      "dockerBuildCacheDetail": "Unused build cache on the default Docker context, pruned with Docker's own command. Images and containers are kept; the next build may take longer.",
+      "condaClean": "Conda download caches",
+      "condaCleanDetail": "Downloaded package archives, index cache, and logs, removed with conda clean. Environments are kept.",
+      "rustToolchains": "Unused Rust toolchains",
+      "rustToolchainsDetail": "rustup toolchains that are not the default, active, overridden, or pinned by a project on this PC. Removed with rustup; reinstall with rustup when needed.",
+      "sizeUnknown": "Size unknown",
+      "reason": {
+        "needsAdmin": "Restart as administrator to measure and clean",
+        "timedOut": "Took too long to measure",
+        "failed": "Could not be measured",
+        "daemonUnavailable": "Docker is not running",
+        "handlerMissing": "Not available on this Windows version",
+        "toolUnavailable": "Tool not installed",
+        "discoveryLimited": "Search stopped at a safety limit"
+      },
+      "execReason": {
+        "changedSinceScan": "Changed since the scan; nothing removed",
+        "toolFailed": "The tool reported an error"
+      }
+    },
+    "projects": {
+      "itemName": "Project build output",
+      "itemDetail": "Rebuildable build output and dependency folders. The next build or install recreates them.",
+      "active": "Active project",
+      "activeHint": "Changed in the last 7 days. Never selected automatically.",
+      "lastModified": "Modified {date}",
+      "limitedNotice": "Project search stopped at a safety limit, so some projects may not be listed.",
+      "confirmNote": "Build output is recreated by the next build or install.",
+      "ecosystems": {
+        "node": "Node.js",
+        "rust": "Rust",
+        "python": "Python",
+        "dotnet": ".NET",
+        "gradle": "Gradle",
+        "maven": "Maven",
+        "cmake": "CMake",
+        "flutter": "Flutter",
+        "composer": "Composer",
+        "unity": "Unity",
+        "unreal": "Unreal",
+        "godot": "Godot",
+        "zig": "Zig",
+        "swift": "Swift",
+        "terraform": "Terraform",
+        "haskell": "Haskell",
+        "elixir": "Elixir"
+      }
+    },
+    "ai": {
+      "modelName": "AI model",
+      "modelDetail": "Downloaded model files. Removal is permanent; the model must be downloaded again to use it.",
+      "confirmNote": "Deleted permanently, not moved to the Recycle Bin.",
+      "providers": {
+        "huggingFace": "Hugging Face",
+        "whisper": "Whisper",
+        "pyTorchHub": "PyTorch Hub",
+        "keras": "Keras",
+        "lmStudio": "LM Studio",
+        "ollama": "Ollama",
+        "gpt4All": "GPT4All",
+        "jan": "Jan"
+      }
+    },
+    "execReason": {
+      "runningProcesses": "App still running",
+      "needsAdmin": "Needs administrator",
+      "itemsBusy": "{count} in use",
+      "itemsFailed": "{count} not removed",
+      "cancelled": "Cancelled",
+      "unknownRule": "No longer available",
+      "notApplicable": "Nothing to clean"
+    },
+    "resultPanel": {
+      "title": "Cleanup finished",
+      "cancelledTitle": "Cleanup cancelled",
+      "freed": "Freed {bytes} · {files} items",
+      "counts": "{completed} cleaned · {partial} partly cleaned · {failed} failed · {skipped} skipped",
+      "busyHint": "Items in use by another app were skipped. Close the app and clean again to remove them.",
+      "ruleFreed": "{bytes} · {count} item | {bytes} · {count} items",
+      "dismiss": "Dismiss"
+    }
   },
   "power": {
     "title": "Power",
@@ -418,7 +845,11 @@
       "power": "Power action",
       "scheduleShutdown": "Scheduled shutdown",
       "cancelSchedule": "Cancelled scheduled shutdown",
-      "test": "Test activity"
+      "test": "Test activity",
+      "uninstaller": "Uninstall program",
+      "uninstallerCleanup": "Uninstall leftovers cleanup",
+      "care": "PC Care scan",
+      "careFix": "PC Care fix"
     }
   },
   "settings": {
@@ -438,6 +869,13 @@
     "activityHistory": "Activity History",
     "activityHistoryBody": "Review cleaner, memory, and power activity from this install.",
     "openHistory": "Open",
+    "historyLimit": "Keep activity history",
+    "historyLimitBody": "Keeps the newest {count} entry; older entries are deleted automatically. | Keeps the newest {count} entries; older entries are deleted automatically.",
+    "historyLimitStored": "{count} entry stored now | {count} entries stored now",
+    "historyLimitOption": "Last {count} entry | Last {count} entries",
+    "historyLimitCustom": "Custom…",
+    "historyLimitCustomLabel": "Number of history entries to keep (1–1000)",
+    "historyLimitUnit": "entries (1–1000)",
     "about": "About",
     "aboutTitle": "About PC Toolkit Pro",
     "aboutBody": "A lightweight Windows toolkit for cleanup, memory, monitoring, and power control.",
@@ -481,7 +919,21 @@
     "groups": {
       "general": "General",
       "support": "Support",
-      "about": "About"
+      "about": "About",
+      "startup": "Startup & administrator"
+    },
+    "startup": {
+      "withWindows": "Start with Windows",
+      "withWindowsBody": "Open PC Toolkit Pro when you sign in, so auto RAM cleanup and your other settings keep working after a restart.",
+      "minimized": "Start minimized to tray",
+      "minimizedBody": "When Windows starts it, stay in the tray instead of opening the window. Opening it yourself always shows the window.",
+      "runAsAdmin": "Always run as administrator",
+      "runAsAdminBody": "Full cleaning everywhere (all memory areas, admin-only fixes). Opening it shows the normal Windows prompt; with Start with Windows, a sign-in task starts it as administrator without asking each time.",
+      "restartNow": "Restart as administrator now",
+      "noteElevatedTask": "Starts as administrator at sign-in through a Windows scheduled task.",
+      "noteNeedsAdminCreate": "Restart as administrator once to finish setup. Until then Windows asks for permission at sign-in.",
+      "noteNeedsAdminRemove": "Restart as administrator once to remove the old administrator sign-in task.",
+      "noteFailed": "Windows did not accept the startup change. Try again, or restart as administrator."
     }
   },
   "tray": {
@@ -499,6 +951,687 @@
     "shutdown": "Shutdown",
     "restart": "Restart",
     "sleep": "Sleep",
-    "lock": "Lock"
+    "lock": "Lock",
+    "tooltip": "RAM {ram}% · CPU {cpu}%",
+    "tooltipGpu": "RAM {ram}% · CPU {cpu}% · GPU {gpu}%"
+  },
+  "care": {
+    "categories": {
+      "privacy": "Privacy traces",
+      "junk": "Junk files",
+      "shortcuts": "Invalid shortcuts",
+      "registry": "Registry entries",
+      "startup": "Startup items",
+      "security": "Security settings",
+      "protection": "Protection status",
+      "windowsUpdate": "Windows Update",
+      "software": "Outdated software",
+      "diskHealth": "Disk health",
+      "diskOptimize": "Disk optimization"
+    },
+    "engine": {
+      "title": "PC Care",
+      "subtitle": "One scan for junk, privacy traces, startup, security, and disk health",
+      "tabs": {
+        "scan": "Scan",
+        "startup": "Startup"
+      },
+      "home": {
+        "scan": "Scan",
+        "scanHint": "Read-only. Nothing changes until you review and fix.",
+        "categoriesTitle": "What to check",
+        "selectAll": "Select all",
+        "selectNone": "Clear",
+        "noneSelected": "Pick at least one category to scan.",
+        "autoFix": "Auto fix safe items after the scan",
+        "autoFixHint": "Only items marked Safe are fixed automatically. Items that need review are never auto-fixed.",
+        "afterAction": "When finished",
+        "lastScan": "Last scan {when}",
+        "lastScanResult": "{issues} issues · {size}",
+        "neverScanned": "No scan yet",
+        "viewResults": "View results"
+      },
+      "afterActions": {
+        "none": "Do nothing",
+        "shutdown": "Shut down",
+        "restart": "Restart",
+        "sleep": "Sleep",
+        "hibernate": "Hibernate"
+      },
+      "scanning": {
+        "title": "Scanning {category}…",
+        "preparing": "Preparing scan…",
+        "fixingTitle": "Fixing {category}…",
+        "fixingPreparing": "Preparing fixes…",
+        "finishing": "Finishing…",
+        "current": "Now checking",
+        "currentIdle": "Waiting for the next item…",
+        "skip": "Skip",
+        "stop": "Stop",
+        "stopping": "Stopping…",
+        "stopTitle": "Stop the scan?",
+        "stopMessage": "Categories that have not finished will be marked as skipped.",
+        "stopFixTitle": "Stop fixing?",
+        "stopFixMessage": "Items already fixed stay fixed. Remaining items are skipped.",
+        "elapsed": "Elapsed {time}",
+        "queued": "Waiting"
+      },
+      "states": {
+        "clean": "No problems",
+        "issues": "{count} found",
+        "attention": "Needs attention",
+        "notApplicable": "Not applicable",
+        "skipped": "Skipped",
+        "failed": "Could not check"
+      },
+      "results": {
+        "title": "Scan results",
+        "summary": "{count} issue · {size} | {count} issues · {size}",
+        "summaryNoSize": "{count} issue | {count} issues",
+        "allClean": "Your PC looks good",
+        "allCleanBody": "Nothing needs fixing right now.",
+        "selectAll": "Select all",
+        "selectNone": "Select none",
+        "fix": "Fix selected",
+        "fixCount": "Fix {count} item | Fix {count} items",
+        "rescan": "Scan again",
+        "back": "Back",
+        "selectedSize": "{size} selected",
+        "items": "{count} item | {count} items",
+        "noItems": "Nothing to show for this category.",
+        "stopped": "The scan was stopped. Results are incomplete.",
+        "elapsed": "Scanned in {time}"
+      },
+      "risk": {
+        "safe": "Safe",
+        "review": "Review",
+        "info": "Info"
+      },
+      "badges": {
+        "admin": "Admin",
+        "adminHint": "Needs PC Toolkit Pro running as administrator; skipped otherwise."
+      },
+      "actions": {
+        "openWindowsUpdate": "Open Windows Update",
+        "openWindowsSecurity": "Open Windows Security",
+        "openVirusProtection": "Open Virus protection",
+        "openFirewall": "Open Firewall settings",
+        "openStartupApps": "Open Startup apps",
+        "openStorage": "Open Storage settings",
+        "openAppsFeatures": "Open Installed apps",
+        "openPrivacy": "Open Privacy settings",
+        "openRecovery": "Open Recovery",
+        "openBackup": "Open Backup",
+        "open": "Open"
+      },
+      "confirm": {
+        "title": "Fix selected items?",
+        "message": "{count} item in {categories} categories will be fixed. Files go away permanently; settings changes keep an undo record where possible. | {count} items in {categories} categories will be fixed. Files go away permanently; settings changes keep an undo record where possible.",
+        "confirm": "Fix now"
+      },
+      "summary": {
+        "title": "Fix complete",
+        "stoppedTitle": "Fixing stopped",
+        "fixed": "Fixed",
+        "partial": "Partly fixed",
+        "failed": "Failed",
+        "skipped": "Skipped",
+        "freed": "Freed",
+        "undoHint": "{count} change can be undone. | {count} changes can be undone.",
+        "afterActionFailed": "The after-fix power action could not run.",
+        "done": "Done",
+        "backToResults": "Back to results",
+        "elapsed": "Finished in {time}",
+        "undoNow": "Undo these changes",
+        "undoDone": "{restored} restored, {skipped} skipped (changed since the fix or needs admin).",
+        "cancelAfterAction": "Cancel",
+        "afterAction": {
+          "shutdown": "Shutting down in {seconds} s — save your work.",
+          "restart": "Restarting in {seconds} s — save your work.",
+          "none": "",
+          "sleep": "",
+          "hibernate": ""
+        }
+      },
+      "reasons": {
+        "skipped": "Skipped by you",
+        "stopped": "Scan stopped",
+        "busy": "Another cleanup is running",
+        "needsAdmin": "Needs administrator",
+        "failed": "Failed",
+        "panicked": "Unexpected error",
+        "notImplemented": "Not available yet",
+        "toolUnavailable": "Tool not available",
+        "unknownItem": "No longer in the scan",
+        "notFixable": "Cannot be fixed automatically",
+        "noResult": "No result",
+        "cancelled": "Cancelled",
+        "runningProcesses": "App is running",
+        "itemsBusy": "Files in use",
+        "itemsFailed": "Some files could not be removed",
+        "itemChanged": "Changed since the scan",
+        "notApplicable": "Not applicable"
+      },
+      "details": {
+        "toggle": "Show details",
+        "problem": "Problem",
+        "location": "Location",
+        "copy": "Copy",
+        "copied": "Copied",
+        "size": "Size",
+        "whatFixDoes": "What Fix does",
+        "risk": "Risk",
+        "admin": "Administrator",
+        "adminOk": "Needed — this copy runs as administrator, so it can be fixed.",
+        "adminNeeded": "Needed — restart PC Toolkit Pro as administrator to fix this item.",
+        "notFixable": "Nothing is changed from here. Use the button to open the Windows page that handles it.",
+        "facts": {
+          "currentValue": "Current value",
+          "fixValue": "Fix sets",
+          "current": "Installed version",
+          "available": "Available version",
+          "id": "Package id",
+          "source": "Source",
+          "publisher": "Publisher",
+          "seconds": "Boot delay",
+          "browser": "Browser",
+          "profile": "Profile",
+          "place": "Found in",
+          "target": "Missing target",
+          "drive": "Drive",
+          "days": "Days since last run",
+          "running": "Before fixing",
+          "profileFolder": "Profile folder"
+        },
+        "values": {
+          "notSet": "Not set (Windows default)",
+          "unreadable": "Cannot be read without administrator rights",
+          "removePolicy": "Remove the policy value so Windows’ own setting applies",
+          "yes": "Yes — close it first or the item is skipped",
+          "browserOpen": "{browser} is open right now. Close it first, otherwise this item is skipped."
+        },
+        "riskMeaning": {
+          "safe": "Safe — rebuildable or reversible; selected automatically and included in Auto fix.",
+          "review": "Review — you might want to keep it; never selected or auto-fixed unless you tick it.",
+          "info": "Information only."
+        },
+        "fix": {
+          "generic": "Applies the fix for this item and checks it again first; anything that changed since the scan is skipped.",
+          "privacy": "Deletes these traces. Registry lists are exported to a .reg backup first; browser files are only removed while the browser is closed. Deleted files cannot be restored.",
+          "junk": "Deletes these cache files permanently with Deep Cleanup’s safety checks; apps rebuild them when needed. Files in use are skipped.",
+          "shortcuts": "Moves the broken shortcut to the Recycle Bin, so you can restore it.",
+          "registry": "Exports the key to a .reg backup, then deletes it. Double-click the backup to restore it; it is also listed in Undo.",
+          "startup": "Stops it from starting with Windows the same way Task Manager does — the program is not removed and you can turn it back on in the Startup tab. Broken entries are deleted after a backup.",
+          "security": "Writes the recommended value after saving the current one. Use Undo to restore the previous value.",
+          "protection": "Turns the firewall profile back on through Windows Firewall. Undo restores the previous state.",
+          "software": "Updates the app with winget (Microsoft’s package manager) using the publisher’s installer.",
+          "diskHealth": "Runs Windows’ online disk check; repairs that need a restart are only scheduled.",
+          "diskOptimize": "Runs Windows’ own drive optimizer (TRIM for SSDs, defragmentation for hard drives)."
+        }
+      },
+      "selection": {
+        "label": "Selection",
+        "smart": "Smart recommendation",
+        "all": "Select all",
+        "none": "Select none",
+        "manual": "Custom",
+        "hint": {
+          "smart": "Smart recommendation selects only safe items: rebuildable caches, broken shortcuts and settings that can be undone. History, cookies, startup apps, registry entries and updates are left for you to decide.",
+          "all": "Everything fixable is selected, including Review items such as browser history, cookies and startup apps — check the list before fixing.",
+          "none": "Nothing is selected. Tick the items you want to fix.",
+          "manual": "Your own selection."
+        }
+      }
+    },
+    "privacy": {
+      "recentItems": "Recent items",
+      "recentItemsDetail": "Shortcuts to recently opened files in the Recent folder. The files themselves are not touched.",
+      "jumpLists": "Jump lists",
+      "jumpListsDetail": "Recent and pinned entries shown when you right-click apps on the taskbar or Start. Pinned jump-list entries are removed too.",
+      "mru": {
+        "recentDocs": "Explorer recent documents",
+        "recentDocsDetail": "Explorer's list of recently opened documents. A .reg backup is saved before it is cleared.",
+        "runMru": "Run dialog history",
+        "runMruDetail": "Commands typed in the Run dialog (Win+R). A .reg backup is saved before it is cleared.",
+        "typedPaths": "Explorer address bar history",
+        "typedPathsDetail": "Paths typed in the File Explorer address bar. A .reg backup is saved before it is cleared.",
+        "searchHistory": "Explorer search history",
+        "searchHistoryDetail": "Searches typed in the File Explorer search box. A .reg backup is saved before it is cleared.",
+        "openSaveMru": "Open / Save dialog history",
+        "openSaveMruDetail": "Files recently chosen in Open and Save dialogs. A .reg backup is saved before it is cleared.",
+        "lastVisitedMru": "Open / Save dialog folders",
+        "lastVisitedMruDetail": "Folders recently used by apps in Open and Save dialogs. A .reg backup is saved before it is cleared."
+      },
+      "browser": {
+        "history": "{browser} history — {profile}",
+        "historyDetail": "Websites you visited and your download list in this profile. Bookmarks, passwords and open tabs are kept.",
+        "cookies": "{browser} cookies — {profile}",
+        "cookiesDetail": "Logins to websites in this profile — you will be signed out of sites. Saved passwords and bookmarks are kept.",
+        "formData": "{browser} saved form data — {profile}",
+        "formDataDetail": "Text the browser remembers for web forms in this profile. Saved passwords are kept."
+      }
+    },
+    "junk": {
+      "description": "System, app, and browser caches recommended by Deep Cleanup. Never the Recycle Bin or Downloads."
+    },
+    "shortcuts": {
+      "missingTarget": {
+        "desktop": "Desktop shortcut whose target no longer exists. It is moved to the Recycle Bin.",
+        "startMenu": "Start menu shortcut whose target no longer exists. It is moved to the Recycle Bin.",
+        "taskbar": "Taskbar / Quick Launch shortcut whose target no longer exists. It is moved to the Recycle Bin."
+      }
+    },
+    "registry": {
+      "orphanUninstall": {
+        "title": "Leftover uninstall entry: {name}",
+        "detail": "The program's uninstaller and install folder no longer exist, so this entry in Installed apps cannot do anything. A .reg backup is saved before it is removed."
+      },
+      "orphanAppPath": {
+        "title": "Broken app shortcut registration: {name}",
+        "detail": "Windows has a Run-dialog registration for this program, but its executable no longer exists. A .reg backup is saved before it is removed."
+      },
+      "orphanSharedDll": {
+        "title": "Stale shared file counter: {name}",
+        "detail": "A shared-file reference count points to a file that no longer exists. Removing it is tidy-up only and does not speed up Windows. The previous value is kept for undo."
+      }
+    },
+    "startup": {
+      "loading": {
+        "status": "Reading startup entries",
+        "title": "Checking what starts with Windows…",
+        "hint": "Read-only. Run keys, Startup folders, logon tasks, and services."
+      },
+      "boot": {
+        "lastBoot": "Last boot took {seconds} s",
+        "measuredAt": "Measured by Windows on {when} · {count} boot recorded | Measured by Windows on {when} · {count} boots recorded",
+        "needsAdmin": "Boot time needs administrator access",
+        "unavailable": "Boot time is not available",
+        "impactUnknownHint": "Boot impact shows as unknown until Windows' boot log can be read.",
+        "adminHint": "Windows only lets administrators read its boot performance log, so impact is unknown."
+      },
+      "summary": "{enabled} of {total} start with Windows · {high} high impact",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search startup entries",
+      "showMicrosoft": "Show Microsoft tasks & services",
+      "showMicrosoftHint": "Windows' own scheduled tasks and services are hidden by default. They are shown read-only.",
+      "filters": {
+        "all": "All",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "new": "New"
+      },
+      "columns": {
+        "name": "Name",
+        "source": "Source",
+        "impact": "Boot impact",
+        "status": "Status"
+      },
+      "sources": {
+        "run": "Run key",
+        "runOnce": "Run once",
+        "startupFolder": "Startup folder",
+        "scheduledTask": "Scheduled task",
+        "service": "Service"
+      },
+      "scopes": {
+        "user": "This user",
+        "machine": "All users"
+      },
+      "impact": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "notFlagged": "Not flagged",
+        "unknown": "Unknown"
+      },
+      "states": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "delayed": "Delayed"
+      },
+      "serviceStart": {
+        "automatic": "Automatic",
+        "automaticDelayed": "Automatic (delayed)",
+        "manual": "Manual",
+        "disabled": "Disabled",
+        "other": "System"
+      },
+      "badges": {
+        "new": "New",
+        "broken": "Missing file",
+        "admin": "Admin",
+        "system": "Windows"
+      },
+      "badgeHints": {
+        "broken": "The program this entry starts no longer exists. You can delete the entry; a backup is kept.",
+        "admin": "Changing this entry affects all users and needs administrator rights."
+      },
+      "unknownPublisher": "Unknown publisher",
+      "toggleLabel": "Start {name} with Windows",
+      "moreActions": "More actions",
+      "menu": {
+        "delay": "Delay start by 1 minute",
+        "delayService": "Set to Automatic (delayed)",
+        "undelay": "Start normally again",
+        "reveal": "Open file location",
+        "delete": "Delete broken entry"
+      },
+      "actionNames": {
+        "enable": "enabled",
+        "disable": "disabled",
+        "delay": "delayed",
+        "undelay": "set to start normally",
+        "delete": "deleted"
+      },
+      "notice": {
+        "done": "{name} {action}.",
+        "skippedNeedAdmin": "{name} was not changed: administrator rights are needed.",
+        "notFound": "{name} changed or disappeared since the list was read. Refresh to see the current state.",
+        "unsupported": "{name} cannot be changed this way.",
+        "failed": "Windows refused to change {name}."
+      },
+      "dismiss": "Dismiss",
+      "emptyTitle": "No startup entries here",
+      "emptyBody": "Try another filter or search.",
+      "restartAdmin": "Restart as administrator",
+      "cancel": "Cancel",
+      "deleteConfirm": {
+        "title": "Delete broken startup entry?",
+        "message": "{name} points to a program that no longer exists. The entry is removed and a backup is saved in the PC Toolkit Pro folder.",
+        "confirm": "Delete entry"
+      },
+      "adminPrompt": {
+        "title": "Administrator rights needed",
+        "message": "{name} starts for all users, so Windows only lets administrators change it. Restart PC Toolkit Pro as administrator?",
+        "decline": "Not now"
+      },
+      "items": {
+        "broken": "Starts a program that no longer exists · safe to remove (a backup is kept)",
+        "enabled": {
+          "high": "Starts with Windows · Windows measured it slowing boot by {seconds} s",
+          "medium": "Starts with Windows · Windows measured it slowing boot by {seconds} s",
+          "low": "Starts with Windows · small measured boot delay ({seconds} s)",
+          "notFlagged": "Starts with Windows · Windows did not report it slowing boot",
+          "unknown": "Starts with Windows · boot impact unknown"
+        }
+      }
+    },
+    "security": {
+      "checks": {
+        "uacEnabled": {
+          "title": "User Account Control is turned off",
+          "detail": "Every program runs with full administrator rights. Turning UAC back on takes effect after a restart."
+        },
+        "uacSecureDesktop": {
+          "title": "UAC prompts do not use the secure desktop",
+          "detail": "Other programs could imitate or click elevation prompts. The secure desktop isolates them."
+        },
+        "uacAdminPrompt": {
+          "title": "Administrators are elevated without a prompt",
+          "detail": "Programs can gain administrator rights silently. Restores the Windows default (prompt for consent for non-Windows programs)."
+        },
+        "remoteUacFiltering": {
+          "title": "Remote UAC restrictions are disabled",
+          "detail": "Local administrator accounts get full rights over the network, which helps attackers move between PCs. Removes the override so the Windows default applies."
+        },
+        "smartScreenApps": {
+          "title": "SmartScreen for apps and files is off",
+          "detail": "Windows does not warn before running unrecognized downloaded programs. Sets it back to warn."
+        },
+        "smartScreenPolicy": {
+          "title": "A policy turns SmartScreen off",
+          "detail": "A local policy disables SmartScreen for the whole PC. Removing the policy returns control to Windows Security. Organization-managed PCs may set it again."
+        },
+        "smartScreenStoreApps": {
+          "title": "SmartScreen for Microsoft Store apps is off",
+          "detail": "Web content used by Store apps is not checked for malicious sites."
+        },
+        "autorunAllDrives": {
+          "title": "AutoRun is allowed on some drive types",
+          "detail": "Drives such as CDs can start programs automatically when inserted. Disables AutoRun on all drive types."
+        },
+        "autorunInf": {
+          "title": "autorun.inf files are processed",
+          "detail": "Windows still reads autorun.inf commands from media. Disabling it blocks a common malware spreading trick."
+        },
+        "autoplay": {
+          "title": "AutoPlay is on",
+          "detail": "Windows offers actions automatically when media or devices are connected. Turning it off is optional — you can still open drives manually."
+        },
+        "smb1Server": {
+          "title": "SMB 1.0 file sharing server is enabled",
+          "detail": "SMB 1.0 is obsolete and was used by WannaCry-style attacks. Disables the server side; takes effect after a restart."
+        },
+        "restrictAnonymousSam": {
+          "title": "Anonymous users can list accounts",
+          "detail": "Anyone on the network could enumerate the PC's user accounts without signing in."
+        },
+        "restrictAnonymous": {
+          "title": "Anonymous users can list shares",
+          "detail": "Anyone on the network could enumerate shared folders without signing in. Very old network devices may rely on this — review before changing."
+        },
+        "everyoneIncludesAnonymous": {
+          "title": "Anonymous users are treated as Everyone",
+          "detail": "Permissions granted to Everyone would also apply to unauthenticated users."
+        },
+        "noLmHash": {
+          "title": "Weak LAN Manager password hashes are stored",
+          "detail": "LM hashes can be cracked in seconds. Stops storing them at the next password change."
+        },
+        "lmCompatibility": {
+          "title": "Weak network authentication (LM / NTLMv1) is allowed",
+          "detail": "The PC may send easily cracked responses when signing in to network resources. Restores the Windows default (NTLMv2 only)."
+        },
+        "limitBlankPasswords": {
+          "title": "Accounts with blank passwords can sign in over the network",
+          "detail": "Accounts without a password should only be usable at the PC itself."
+        },
+        "wdigestCredentials": {
+          "title": "Sign-in passwords are kept in memory in plain text",
+          "detail": "WDigest stores reusable passwords that credential-stealing tools can read."
+        },
+        "lsaProtection": {
+          "title": "LSA protection is off",
+          "detail": "Runs the Windows sign-in service as a protected process so tools cannot read credentials from it. Some older security or smart-card drivers are incompatible — review before enabling. Takes effect after a restart."
+        },
+        "llmnr": {
+          "title": "Multicast name resolution (LLMNR) is enabled",
+          "detail": "LLMNR can be spoofed on local networks to capture credentials. Some home networks use it to find devices by name — review before changing."
+        },
+        "sehop": {
+          "title": "Exception chain validation (SEHOP) is off",
+          "detail": "SEHOP blocks a common class of exploits. Restores the Windows default."
+        },
+        "windowsScriptHost": {
+          "title": "Windows Script Host is enabled",
+          "detail": "Malicious .vbs and .js email attachments run through Windows Script Host. Some installers and logon scripts need it — review before disabling."
+        },
+        "alwaysInstallElevatedMachine": {
+          "title": "Installers always run with administrator rights",
+          "detail": "Any user can install a package that runs with full system rights. Removes the policy."
+        },
+        "alwaysInstallElevatedUser": {
+          "title": "Installers always run with administrator rights for this user",
+          "detail": "Combined with the machine policy, any package runs with full system rights. Removes the policy."
+        },
+        "pointAndPrint": {
+          "title": "Printer drivers install without elevation",
+          "detail": "Point and Print can install untrusted printer drivers without a prompt (PrintNightmare). Removes the override."
+        },
+        "remoteDesktop": {
+          "title": "Remote Desktop is enabled",
+          "detail": "The PC accepts Remote Desktop connections. Turn it off only if you do not connect to this PC remotely."
+        },
+        "remoteDesktopNla": {
+          "title": "Remote Desktop does not require Network Level Authentication",
+          "detail": "Connections can reach the sign-in screen before authenticating, which exposes the PC to attacks."
+        },
+        "remoteAssistance": {
+          "title": "Remote Assistance is allowed",
+          "detail": "Others can be invited to control this PC. Turn it off if you do not use Remote Assistance."
+        },
+        "autoLogonPassword": {
+          "title": "Automatic sign-in stores a password in plain text",
+          "detail": "Windows signs in automatically using a password saved unencrypted in the registry. Turn off automatic sign-in in the account settings if you do not need it."
+        },
+        "secureBoot": {
+          "title": "Secure Boot is off",
+          "detail": "Secure Boot blocks boot-level malware. It can only be turned on in the PC's UEFI firmware settings."
+        },
+        "defenderPua": {
+          "title": "Potentially unwanted app blocking is off",
+          "detail": "Microsoft Defender does not block adware and bundled junk software. This is set through a local policy, so Windows Security will show it as managed."
+        },
+        "controlledFolderAccess": {
+          "title": "Controlled folder access is off",
+          "detail": "Ransomware protection for your documents is off. It can block some legitimate apps, so turn it on in Windows Security if you want it."
+        },
+        "advertisingId": {
+          "title": "Apps can use your advertising ID",
+          "detail": "Apps can track you across apps to show personalized ads."
+        },
+        "tailoredExperiences": {
+          "title": "Tailored experiences with diagnostic data are on",
+          "detail": "Microsoft uses your diagnostic data for personalized tips, ads, and recommendations."
+        },
+        "suggestedContent": {
+          "title": "Suggested content in Settings is on",
+          "detail": "Windows shows promotional suggestions in the Settings app."
+        },
+        "languageListAccess": {
+          "title": "Websites can read your language list",
+          "detail": "Websites get your installed languages, which helps fingerprint the browser."
+        },
+        "inkingTypingPersonalization": {
+          "title": "Inking and typing data is sent to Microsoft",
+          "detail": "Typing and handwriting data is sent to improve recognition and suggestions."
+        },
+        "appLaunchTracking": {
+          "title": "Windows tracks app launches",
+          "detail": "Used to improve Start and search results. Turning it off removes the most-used list from Start — review before changing."
+        },
+        "telemetryLevel": {
+          "title": "Optional diagnostic data is sent",
+          "detail": "Windows sends optional diagnostic data (websites, app usage) to Microsoft. Limits it to required diagnostic data."
+        },
+        "showFileExtensions": {
+          "title": "File name extensions are hidden",
+          "detail": "Malicious files can disguise themselves, for example invoice.pdf.exe shown as invoice.pdf."
+        }
+      }
+    },
+    "protection": {
+      "noAntivirus": {
+        "title": "No antivirus is registered",
+        "detail": "Windows Security does not report any antivirus. Open Windows Security to turn on Microsoft Defender Antivirus or check your security product."
+      },
+      "antivirusOff": {
+        "title": "{name} is turned off",
+        "detail": "Real-time protection is off or snoozed. Turn it back on in Windows Security or in the antivirus program itself."
+      },
+      "antivirusExpired": {
+        "title": "{name} subscription has expired",
+        "detail": "This antivirus no longer protects the PC. Renew it, or remove it so Microsoft Defender Antivirus can take over."
+      },
+      "antivirusOutdated": {
+        "title": "{name} protection updates are out of date",
+        "detail": "Security intelligence is outdated, so recent threats may not be detected. Check for protection updates in Windows Security."
+      },
+      "securityCenterUnavailable": {
+        "title": "Windows Security status is unavailable",
+        "detail": "Windows Security Center did not answer, so antivirus status could not be checked on this PC."
+      },
+      "firewallUnavailable": {
+        "title": "Windows Firewall status is unavailable",
+        "detail": "The firewall could not be read. The Windows Defender Firewall service may be stopped. Open Windows Security to check."
+      },
+      "firewallOff": {
+        "domain": {
+          "title": "Firewall is off for domain networks",
+          "detail": "Windows Defender Firewall is disabled for workplace (domain) networks. Turning it on needs administrator rights and can be undone."
+        },
+        "private": {
+          "title": "Firewall is off for private networks",
+          "detail": "Windows Defender Firewall is disabled for home and other private networks. Turning it on needs administrator rights and can be undone."
+        },
+        "public": {
+          "title": "Firewall is off for public networks",
+          "detail": "Windows Defender Firewall is disabled on public networks such as cafés and airports. Turning it on needs administrator rights and can be undone."
+        }
+      }
+    },
+    "windowsUpdate": {
+      "serviceDisabled": {
+        "title": "Windows Update service is disabled",
+        "detail": "Windows cannot download security updates while the Windows Update service is disabled."
+      },
+      "rebootPending": {
+        "title": "Restart to finish installing updates",
+        "detail": "Updates are installed but only take effect after a restart."
+      },
+      "checkStale": {
+        "title": "No successful update check for {days} days",
+        "detail": "Windows normally checks for updates every day. Open Windows Update and select Check for updates."
+      },
+      "neverChecked": {
+        "title": "Windows Update has no successful check on record",
+        "detail": "Open Windows Update and select Check for updates."
+      },
+      "installStale": {
+        "title": "No updates installed for {days} days",
+        "detail": "Windows releases security updates every month. Open Windows Update to see if updates are waiting or failing."
+      },
+      "updatesPending": {
+        "title": "{count} update waiting to be installed | {count} updates waiting to be installed",
+        "detail": "As of Windows Update's last check, {count} update is not installed yet ({security} with a security rating). Install it from Windows Update. | As of Windows Update's last check, {count} updates are not installed yet ({security} with a security rating). Install them from Windows Update."
+      },
+      "checkSlow": {
+        "title": "The update list took too long to read",
+        "detail": "Windows Update did not answer in time, so waiting updates could not be counted. Open Windows Update to check."
+      },
+      "checkFailed": {
+        "title": "Waiting updates could not be counted",
+        "detail": "Windows Update did not return a list of updates. Open Windows Update to check."
+      }
+    },
+    "software": {
+      "updateAvailable": "{current} → {available} via winget",
+      "updateIdTruncated": "{current} → {available}. winget shortened this package id, so it cannot be updated from here; update it in the app or with winget."
+    },
+    "diskHealth": {
+      "volumeDirty": "Drive {drive} needs a check",
+      "volumeDirtyDetail": "Windows marked this drive as possibly having file system errors. Fix runs an online check (chkdsk /scan) and schedules a check at restart if a repair needs the drive offline. Requires administrator.",
+      "lowSpace": "Drive {drive} is low on space",
+      "lowSpaceDetail": "Only {percent}% free. Low free space slows Windows and blocks updates.",
+      "diskWarning": "{disk} reports a health warning",
+      "diskWarningDetail": "Windows reports a warning for this disk ({drives}). Back up important files. Status: {status}",
+      "diskUnhealthy": "{disk} is unhealthy",
+      "diskUnhealthyDetail": "Windows reports this disk ({drives}) as unhealthy. Back up your files now and plan to replace it. Status: {status}"
+    },
+    "diskOptimize": {
+      "retrimDue": "Drive {drive} not optimized in {days} days",
+      "retrimDueDetail": "Runs Windows Optimize Drives (ReTrim) on this SSD. Requires administrator.",
+      "defragDue": "Drive {drive} not optimized in {days} days",
+      "defragDueDetail": "Runs Windows Optimize Drives (defragment) on this hard disk. It can take a long time. Requires administrator.",
+      "trimDisabled": "TRIM is turned off",
+      "trimDisabledDetail": "SSDs need TRIM to stay fast. Fix turns it back on (the Windows default). Requires administrator.",
+      "scheduleDisabled": "Scheduled drive optimization is off",
+      "scheduleDisabledDetail": "Windows normally optimizes drives weekly (ReTrim on SSDs). Fix turns the built-in schedule back on. Requires administrator.",
+      "scheduleMissing": "Scheduled drive optimization is missing",
+      "scheduleMissingDetail": "The built-in Windows optimization task was removed. Run Optimize Drives manually from time to time."
+    }
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "codes": {
+      "invalidInput": "The request was not valid. Refresh the page and try again.",
+      "operationBusy": "Another operation is still running. Wait for it to finish, then try again.",
+      "operationCancelled": "The operation was cancelled.",
+      "operationFailed": "The operation could not be completed. Try again.",
+      "permissionDenied": "Windows denied access. Restart as administrator if this keeps happening.",
+      "taskJoinFailed": "A background task stopped unexpectedly. Try again.",
+      "notFound": "The item could not be found. It may have been removed already.",
+      "unknown": "An unexpected error occurred. Try again."
+    }
   }
 }
