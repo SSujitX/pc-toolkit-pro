@@ -308,9 +308,9 @@ pub fn optimize_memory(
             category: "memoryCleaner".into(),
             title_key: "history.titles.memoryCleaner".into(),
             summary: format!(
-                "{} · freed {} bytes · {} ok / {} skipped / {} failed",
+                "{} · freed {} · {} ok / {} skipped / {} failed",
                 reason.as_str(),
-                mem.freed_bytes,
+                crate::shared::format_size(mem.freed_bytes),
                 ok,
                 skipped,
                 failed
