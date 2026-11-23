@@ -2,13 +2,14 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
+  Bot,
   Boxes,
+  FolderGit2,
   FolderOpen,
   Globe,
   Layers,
   Package,
   Paintbrush,
-  Recycle,
   Sparkles,
 } from '@lucide/vue';
 import type { Component } from 'vue';
@@ -16,20 +17,26 @@ import PtPageShell from '@/components/custom/pt-page-shell.vue';
 import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue';
 import PtSoftSelect from '@/components/custom/pt-soft-select.vue';
 import PtDeepCleanupConfirm from '@/pages/deep-cleaner/pt-deep-cleanup-confirm.vue';
+import PtDeepCleanupResult from '@/pages/deep-cleaner/pt-deep-cleanup-result.vue';
 import { formatBytes } from '@/lib/utils/format';
 import {
-  DEEP_CLEANUP_GROUPS,
+  execReasonKey,
   groupBytes,
   groupCount,
+  ruleDetail,
+  ruleTitle,
+  tagLabelKey,
   type DeepCleanupGroup,
+  type DeepCleanupRule,
+  type DeepCleanupRuleExecResult,
   type DeepCleanupSelectionMode,
 } from '@/lib/models/deep-cleaner';
 import { useDeepCleanerStore } from '@/stores/deep-cleaner-store';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const store = useDeepCleanerStore();
 const confirmOpen = ref(false);
-const elapsedSec = ref(0);
+const nowMs = ref(Date.now());
 const activeGroup = ref<DeepCleanupGroup>('system');
 let elapsedTimer: number | null = null;
 
@@ -38,6 +45,8 @@ const groupIcons: Record<DeepCleanupGroup, Component> = {
   application: Package,
   browser: Globe,
   development: Boxes,
+  projects: FolderGit2,
+  ai: Bot,
 };
 
 const isBusy = computed(() => store.loading);
@@ -49,8 +58,9 @@ const selectedBytes = computed(() => store.selectedBytes);
 const foundCount = computed(() => store.visibleRules.length);
 const foundBytes = computed(() => store.foundBytes);
 
+// Groups come from the scan (data-driven); a group shows only when it has findings.
 const groupNav = computed(() =>
-  DEEP_CLEANUP_GROUPS.map((group) => ({
+  store.groups.map((group) => ({
     id: group,
     label: t(`deepCleaner.groups.${group}`),
     count: groupCount(store.rules, group),
@@ -61,6 +71,11 @@ const groupNav = computed(() =>
 
 const activeRules = computed(() =>
   store.visibleRules.filter((r) => r.group === activeGroup.value)
+);
+
+// Project discovery hit a safety limit: say so above the list.
+const activeGroupLimited = computed(() =>
+  activeRules.value.some((r) => r.reason === 'discoveryLimited')
 );
 
 const activeGroupMeta = computed(
@@ -107,7 +122,7 @@ const stats = computed(() => {
     return [
       { label: t('deepCleaner.selected'), value: String(selectedCount.value) },
       { label: t('deepCleaner.estimated'), value: formatBytes(selectedBytes.value) },
-      { label: t('deepCleaner.elapsed'), value: `${elapsedSec.value} sec` },
+      { label: t('deepCleaner.elapsed'), value: t('common.elapsedSeconds', { count: elapsedSec.value }) },
     ];
   }
   return [
@@ -119,7 +134,7 @@ const stats = computed(() => {
       label: t('deepCleaner.dataScanned'),
       value: formatBytes(store.progress?.bytesScanned ?? 0),
     },
-    { label: t('deepCleaner.elapsed'), value: `${elapsedSec.value} sec` },
+    { label: t('deepCleaner.elapsed'), value: t('common.elapsedSeconds', { count: elapsedSec.value }) },
   ];
 });
 
@@ -127,21 +142,29 @@ const selectionOptions = computed(() => [
   { value: 'smart', label: t('deepCleaner.selection.smart') },
   { value: 'all', label: t('deepCleaner.selection.all') },
   { value: 'none', label: t('deepCleaner.selection.none') },
+  // Shown (not chosen) once the user ticks items by hand.
+  ...(store.selectionMode === 'manual' ? [{ value: 'manual', label: t('deepCleaner.selection.manual') }] : []),
 ]);
 
-watch(isBusy, (busy) => {
-  if (busy) {
-    elapsedSec.value = 0;
+// Elapsed derives from the store's start timestamp, so it stays right after re-mounting mid-run.
+const elapsedSec = computed(() =>
+  store.busySince == null ? 0 : Math.max(0, Math.floor((nowMs.value - store.busySince) / 1000))
+);
+watch(
+  isBusy,
+  (busy) => {
     if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-    elapsedTimer = window.setInterval(() => {
-      elapsedSec.value += 1;
-    }, 1000);
-  } else if (elapsedTimer != null) {
-    window.clearInterval(elapsedTimer);
     elapsedTimer = null;
-  }
-});
+    if (!busy) return;
+    nowMs.value = Date.now();
+    elapsedTimer = window.setInterval(() => {
+      nowMs.value = Date.now();
+    }, 1000);
+  },
+  { immediate: true }
+);
 
+// Immediate: after navigating back the page re-mounts with 'system', which may have no findings.
 watch(
   () => store.visibleRules,
   (rules) => {
@@ -149,7 +172,8 @@ watch(
     if (!rules.some((r) => r.group === activeGroup.value)) {
       activeGroup.value = rules[0]?.group ?? 'system';
     }
-  }
+  },
+  { immediate: true }
 );
 
 onUnmounted(() => {
@@ -166,6 +190,51 @@ function onSelectionMode(mode: string | number) {
 
 function riskLabel(risk: string) {
   return risk === 'safe' ? t('deepCleaner.riskLow') : t('deepCleaner.riskMedium');
+}
+
+/** Display name of the first running related app (`chrome.exe` → `chrome`). */
+function appLabel(rule: DeepCleanupRule): string {
+  const image = rule.runningProcesses[0] ?? rule.relatedProcesses[0] ?? '';
+  return image.replace(/\.exe$/i, '');
+}
+
+function execResult(rule: DeepCleanupRule): DeepCleanupRuleExecResult | undefined {
+  return store.resultById[rule.id];
+}
+
+function execLabel(item: DeepCleanupRuleExecResult): string {
+  const status = t(`deepCleaner.execStatus.${item.status}`);
+  if (!item.reason) return status;
+  if (item.reason === 'itemsBusy') {
+    return `${status} · ${t('deepCleaner.execReason.itemsBusy', { count: item.busyCount })}`;
+  }
+  if (item.reason === 'itemsFailed') {
+    return `${status} · ${t('deepCleaner.execReason.itemsFailed', { count: item.failedCount })}`;
+  }
+  return `${status} · ${t(execReasonKey(item.reason))}`;
+}
+
+/** Item-level rows (projects, AI models, toolchains) get a second line. */
+function hasItemFacts(rule: DeepCleanupRule): boolean {
+  return Boolean(rule.displayName || rule.artifacts?.length || rule.tags?.length);
+}
+
+function modifiedLabel(rule: DeepCleanupRule): string {
+  if (!rule.lastModifiedMs) return '';
+  const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(
+    new Date(rule.lastModifiedMs)
+  );
+  return t('deepCleaner.projects.lastModified', { date });
+}
+
+function sizeLabel(rule: DeepCleanupRule): string {
+  return rule.status === 'unmeasured' ? t('deepCleaner.special.sizeUnknown') : formatBytes(rule.bytes);
+}
+
+function reasonHint(rule: DeepCleanupRule): string {
+  return rule.reason && rule.reason !== 'discoveryLimited'
+    ? t(`deepCleaner.special.reason.${rule.reason}`)
+    : '';
 }
 </script>
 
@@ -213,7 +282,7 @@ function riskLabel(risk: string) {
     <div v-else-if="showResults && foundCount > 0" class="results">
       <header class="summary">
         <div class="summary-copy">
-          <strong>{{ t('deepCleaner.summaryCount', { count: foundCount }) }}</strong>
+          <strong>{{ t('deepCleaner.summaryCount', { count: foundCount }, foundCount) }}</strong>
           <span class="summary-space">
             {{ t('deepCleaner.summarySpace') }}
             <em>{{ formatBytes(foundBytes) }}</em>
@@ -223,7 +292,7 @@ function riskLabel(risk: string) {
           <Sparkles :size="14" :stroke-width="2" aria-hidden="true" />
           <span class="mode-label">{{ t('deepCleaner.selectionLabel') }}</span>
           <PtSoftSelect
-            :model-value="store.selectionMode === 'manual' ? 'smart' : store.selectionMode"
+            :model-value="store.selectionMode"
             :options="selectionOptions"
             @update:model-value="onSelectionMode"
           />
@@ -247,7 +316,7 @@ function riskLabel(risk: string) {
               <strong>{{ group.label }}</strong>
               <small>
                 {{ formatBytes(group.bytes) }} ·
-                {{ t('deepCleaner.categoryItems', { count: group.count }) }}
+                {{ t('deepCleaner.categoryItems', { count: group.count }, group.count) }}
               </small>
             </span>
             <em>{{ formatBytes(group.bytes) }}</em>
@@ -271,6 +340,9 @@ function riskLabel(risk: string) {
               {{ groupAllSelected ? t('deepCleaner.deselectAll') : t('deepCleaner.selectAll') }}
             </button>
           </header>
+          <p v-if="activeGroupLimited" class="group-notice">
+            {{ t('deepCleaner.projects.limitedNotice') }}
+          </p>
 
           <ul class="rule-list">
             <li v-for="rule in activeRules" :key="rule.id" class="rule-row">
@@ -287,19 +359,58 @@ function riskLabel(risk: string) {
                     :stroke-width="1.75"
                   />
                 </span>
+                <span class="rule-body">
                 <span class="rule-copy">
-                  <strong>{{ t(rule.nameKey) }}</strong>
+                  <strong :title="rule.pathHint">{{ ruleTitle(rule, t) }}</strong>
+                  <span
+                    v-if="rule.active"
+                    class="badge badge-admin"
+                    :title="t('deepCleaner.projects.activeHint')"
+                  >{{ t('deepCleaner.projects.active') }}</span>
                   <span v-if="rule.risk === 'safe'" class="badge">{{ riskLabel(rule.risk) }}</span>
                   <span
-                    v-if="rule.requiresElevation"
+                    v-if="rule.needsAdmin"
                     class="badge badge-admin"
                     :title="t('deepCleaner.adminRequiredHint')"
+                  >{{ t('deepCleaner.status.needsAdmin') }}</span>
+                  <span
+                    v-else-if="rule.requiresElevation"
+                    class="badge badge-muted"
+                    :title="t('deepCleaner.adminRequiredHint')"
                   >{{ t('deepCleaner.adminRequired') }}</span>
+                  <span
+                    v-if="rule.status === 'requiresClose'"
+                    class="badge badge-admin"
+                    :title="t('deepCleaner.status.closeAppHint', { app: appLabel(rule) })"
+                  >{{ t('deepCleaner.status.closeApp', { app: appLabel(rule) }) }}</span>
+                  <span
+                    v-if="rule.limited"
+                    class="badge badge-muted"
+                    :title="t('deepCleaner.status.limitedHint')"
+                  >{{ t('deepCleaner.status.limited') }}</span>
+                </span>
+                <span v-if="hasItemFacts(rule)" class="rule-sub">
+                  <span
+                    v-for="tag in rule.tags ?? []"
+                    :key="tag"
+                    class="chip"
+                  >{{ t(tagLabelKey(rule, tag)) }}</span>
+                  <span class="rule-sub-text">{{ ruleDetail(rule, t) }}</span>
+                  <span v-if="modifiedLabel(rule)" class="rule-sub-text">· {{ modifiedLabel(rule) }}</span>
+                </span>
+                <span v-else-if="reasonHint(rule)" class="rule-sub">
+                  <span class="rule-sub-text">{{ reasonHint(rule) }}</span>
+                </span>
                 </span>
               </label>
               <div class="rule-meta">
-                <strong>{{ formatBytes(rule.bytes) }}</strong>
-                <small>{{
+                <strong :title="reasonHint(rule) || undefined">{{ sizeLabel(rule) }}</strong>
+                <small
+                  v-if="execResult(rule)"
+                  class="exec-label"
+                  :class="execResult(rule)?.status"
+                >{{ execLabel(execResult(rule)!) }}</small>
+                <small v-else>{{
                   rule.selected ? t('deepCleaner.selectedLabel') : t('deepCleaner.cleanableLabel')
                 }}</small>
               </div>
@@ -311,7 +422,7 @@ function riskLabel(risk: string) {
       <footer class="action-bar">
         <div class="action-copy">
           <strong>
-            {{ t('deepCleaner.footerSelected', { count: selectedCount }) }}
+            {{ t('deepCleaner.footerSelected', { count: selectedCount }, selectedCount) }}
           </strong>
           <span>
             {{ t('deepCleaner.footerEstimate') }}
@@ -328,17 +439,12 @@ function riskLabel(risk: string) {
         </button>
       </footer>
 
-      <section v-if="store.result" class="result-card">
-        <Recycle :size="16" :stroke-width="1.75" aria-hidden="true" />
-        <p>
-          {{
-            t('deepCleaner.result', {
-              bytes: formatBytes(store.result.freedBytes),
-              files: store.result.filesRemoved,
-            })
-          }}
-        </p>
-      </section>
+      <PtDeepCleanupResult
+        v-if="store.result"
+        :result="store.result"
+        :rules="store.rules"
+        @dismiss="store.dismissResult()"
+      />
     </div>
 
     <div v-else-if="showResults && foundCount === 0" class="empty">
@@ -589,11 +695,54 @@ function riskLabel(risk: string) {
   background: color-mix(in oklab, var(--primary) 10%, transparent);
   color: var(--primary);
 }
+.rule-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
 .rule-copy {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+.rule-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rule-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+}
+.rule-sub-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip {
+  display: inline-flex;
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  color: var(--foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+.group-notice {
+  margin: 0 10px 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--muted) 60%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
 }
 .rule-copy strong {
   font-size: 0.8125rem;
@@ -655,15 +804,18 @@ function riskLabel(risk: string) {
   color: var(--muted-foreground);
   min-width: 220px;
 }
-.result-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: color-mix(in oklab, var(--primary) 10%, var(--card));
-  color: var(--foreground);
-  font-size: 0.8125rem;
+.badge-muted {
+  background: color-mix(in oklab, var(--muted) 80%, transparent);
+  color: var(--muted-foreground);
+}
+.exec-label {
+  color: color-mix(in oklab, var(--warning, #b45309) 85%, var(--foreground));
+}
+.exec-label.completed {
+  color: color-mix(in oklab, var(--success, #15803d) 80%, var(--foreground));
+}
+.exec-label.failed {
+  color: var(--destructive, #dc2626);
 }
 .empty {
   display: grid;
