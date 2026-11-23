@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -42,14 +42,17 @@ pub fn launch_program(id: QuickActionId) -> PlatformResult<()> {
         QuickActionId::Services => spawn_shell("services.msc"),
         QuickActionId::NetworkConnections => spawn_shell("ncpa.cpl"),
         QuickActionId::Settings => launch_settings(),
-        QuickActionId::CommandPromptAdmin => elevate("cmd.exe"),
-        QuickActionId::PowerShellAdmin => elevate("powershell.exe"),
+        QuickActionId::CommandPromptAdmin => elevate(&cmd_exe()),
+        QuickActionId::PowerShellAdmin => elevate(&crate::registry::powershell_exe()),
     }
 }
 
 fn system32_path(exe: &str) -> PathBuf {
-    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| OsString::from(r"C:\Windows"));
-    PathBuf::from(root).join("System32").join(exe)
+    crate::registry::system32_exe(exe)
+}
+
+fn cmd_exe() -> PathBuf {
+    crate::registry::system32_exe("cmd.exe")
 }
 
 fn spawn_system32(exe: &str) -> PlatformResult<()> {
@@ -63,7 +66,7 @@ fn spawn_system32(exe: &str) -> PlatformResult<()> {
 
 fn spawn_detached(path: &std::path::Path) -> PlatformResult<()> {
     // `cmd /C start "" <path>` detaches a visible GUI process reliably.
-    let mut cmd = Command::new("cmd");
+    let mut cmd = Command::new(cmd_exe());
     cmd.args([
         "/C",
         "start",
@@ -77,7 +80,7 @@ fn spawn_detached(path: &std::path::Path) -> PlatformResult<()> {
 }
 
 fn spawn_shell(target: &str) -> PlatformResult<()> {
-    let mut cmd = Command::new("cmd");
+    let mut cmd = Command::new(cmd_exe());
     cmd.args(["/C", "start", "", target]);
     crate::process::hide_console(&mut cmd);
     cmd.spawn()
@@ -86,7 +89,7 @@ fn spawn_shell(target: &str) -> PlatformResult<()> {
 }
 
 fn launch_settings() -> PlatformResult<()> {
-    let mut cmd = Command::new("cmd");
+    let mut cmd = Command::new(cmd_exe());
     cmd.args(["/C", "start", "", "ms-settings:"]);
     crate::process::hide_console(&mut cmd);
     if cmd.spawn().is_err() {
@@ -100,7 +103,7 @@ fn launch_snipping_tool() -> PlatformResult<()> {
     if spawn_system32("SnippingTool.exe").is_ok() {
         return Ok(());
     }
-    let mut cmd = Command::new("cmd");
+    let mut cmd = Command::new(cmd_exe());
     cmd.args(["/C", "start", "", "ms-screenclip:"]);
     crate::process::hide_console(&mut cmd);
     cmd.spawn()
@@ -108,12 +111,14 @@ fn launch_snipping_tool() -> PlatformResult<()> {
     Ok(())
 }
 
-fn elevate(program: &str) -> PlatformResult<()> {
+fn elevate(program: &std::path::Path) -> PlatformResult<()> {
+    // Absolute System32 path so `Start-Process` cannot resolve a planted exe via PATH.
+    let program = program.to_string_lossy();
     let script = format!(
         "Start-Process -FilePath '{}' -Verb RunAs -WorkingDirectory $env:SystemRoot\\System32",
         program.replace('\'', "''")
     );
-    let mut cmd = Command::new("powershell");
+    let mut cmd = Command::new(crate::registry::powershell_exe());
     cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script]);
     crate::process::hide_console(&mut cmd);
     cmd.spawn()
@@ -125,6 +130,12 @@ fn elevate(program: &str) -> PlatformResult<()> {
 /// On success the caller must exit quickly so the single-instance lock is released
 /// before the elevated process finishes startup.
 pub fn relaunch_self_elevated() -> PlatformResult<()> {
+    relaunch_self_elevated_with_args("")
+}
+
+/// Start an elevated copy of this executable with `args` (normal UAC prompt; never silent).
+/// Returns `elevationCancelled` when the user declines.
+pub fn relaunch_self_elevated_with_args(args: &str) -> PlatformResult<()> {
     #[cfg(windows)]
     {
         use std::os::windows::ffi::OsStrExt;
@@ -146,12 +157,14 @@ pub fn relaunch_self_elevated() -> PlatformResult<()> {
 
         let mut file: Vec<u16> = exe.as_os_str().encode_wide().chain(Some(0)).collect();
         let mut verb: Vec<u16> = OsStr::new("runas").encode_wide().chain(Some(0)).collect();
+        let mut params: Vec<u16> = OsStr::new(args).encode_wide().chain(Some(0)).collect();
 
         let mut info = SHELLEXECUTEINFOW {
             cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
             fMask: SEE_MASK_NOCLOSEPROCESS,
             lpVerb: PCWSTR(verb.as_mut_ptr()),
             lpFile: PCWSTR(file.as_mut_ptr()),
+            lpParameters: if args.is_empty() { PCWSTR::null() } else { PCWSTR(params.as_mut_ptr()) },
             nShow: SW_SHOWNORMAL.0,
             ..Default::default()
         };
@@ -173,6 +186,7 @@ pub fn relaunch_self_elevated() -> PlatformResult<()> {
     }
     #[cfg(not(windows))]
     {
+        let _ = args;
         Err(PlatformError::Unsupported)
     }
 }
