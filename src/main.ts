@@ -21,7 +21,7 @@ async function start() {
   await ApplicationWindowService.showAfterMount();
   const memory = useMemoryCleanerStore(pinia);
   await memory.loadSettings();
-  memory.startAutoClean();
+  void memory.startAutoClean();
   await setupTray();
 }
 
