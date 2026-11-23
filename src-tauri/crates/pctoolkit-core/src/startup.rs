@@ -1,11 +1,12 @@
 //! Startup Manager: what starts with Windows, how much it slows boot, and reversible switches.
 //!
 //! Sources: Run / RunOnce values (HKCU, HKLM native + `WOW6432Node`), Startup folders (user +
-//! all users), scheduled tasks with logon / boot triggers, and auto-start Win32 services.
-//! Listing is read-only and needs no admin. Changes use exactly what Windows uses:
-//! `StartupApproved` markers (Task Manager), `IRegisteredTask::put_Enabled`, and service start
-//! types. Machine-wide changes need an elevated process and report `skippedNeedAdmin` instead of
-//! elevating. Microsoft services / tasks are shown on request but never changed.
+//! all users), scheduled tasks with logon / boot triggers, auto-start Win32 services, and the
+//! current user's packaged (MSIX / Store) app startup tasks. Listing is read-only and needs no
+//! admin. Changes use exactly what Windows uses: `StartupApproved` markers (Task Manager),
+//! `IRegisteredTask::put_Enabled`, service start types, and the packaged task `State` value
+//! (Settings → Startup apps; policy-controlled tasks are read-only). Machine-wide changes need
+//! an elevated process and report `skippedNeedAdmin` instead of elevating. Microsoft services / tasks are shown on request but never changed.
 //!
 //! Persistence under `%LOCALAPPDATA%\PC Toolkit Pro\`:
 //! - `startup-undo.json` (version 1): previous service start types and delayed-start tasks we
@@ -294,6 +295,7 @@ fn item_id(fact: &StartupEntryFact) -> String {
         ),
         StartupLocation::Task { path } => format!("task:{path}"),
         StartupLocation::Service { name } => format!("svc:{name}"),
+        StartupLocation::Package { family, task_id } => format!("pkg:{family}:{task_id}"),
     }
 }
 
@@ -438,15 +440,19 @@ fn collect_facts(sources: &[StartupSource]) -> Vec<StartupEntryFact> {
     if sources.contains(&StartupSource::Service) {
         facts.extend(items::list_service_entries());
     }
+    if sources.contains(&StartupSource::PackagedApp) {
+        facts.extend(items::list_packaged_entries());
+    }
     facts
 }
 
-const ALL_SOURCES: [StartupSource; 5] = [
+const ALL_SOURCES: [StartupSource; 6] = [
     StartupSource::Run,
     StartupSource::RunOnce,
     StartupSource::StartupFolder,
     StartupSource::ScheduledTask,
     StartupSource::Service,
+    StartupSource::PackagedApp,
 ];
 
 /// Turn platform facts into items (policy: what is shown, changeable, broken, delayed).
@@ -475,8 +481,20 @@ fn build_records(facts: Vec<StartupEntryFact>, undo: &UndoFile, boot: &BootData)
         }
         let id = item_id(&fact);
         let version = fact.target.as_deref().map(version_facts).unwrap_or_default();
-        let is_microsoft = fact.microsoft_task || is_microsoft_company(version.company.as_deref());
-        let broken = fact.target.as_deref().is_some_and(|t| is_broken_target(t, &|p| p.exists()));
+        let package = fact.package.as_ref();
+        let publisher = package
+            .map(|p| p.publisher.trim())
+            .filter(|p| !p.is_empty())
+            .map(str::to_string)
+            .or_else(|| version.company.clone());
+        let is_microsoft = fact.microsoft_task
+            || package.is_some_and(|p| p.is_system)
+            || is_microsoft_company(publisher.as_deref())
+            || is_microsoft_company(version.company.as_deref());
+        // Packages are installed and repaired by Windows; a missing package file is never offered
+        // as a "broken entry" to delete.
+        let broken = package.is_none() && fact.target.as_deref().is_some_and(|t| is_broken_target(t, &|p| p.exists()));
+        let policy_locked = package.is_some_and(|p| p.state.is_policy_locked());
         let delayed = undo.delayed.get(&id);
         let state = match fact.source {
             StartupSource::Service => match fact.service_start {
@@ -492,9 +510,11 @@ fn build_records(facts: Vec<StartupEntryFact>, undo: &UndoFile, boot: &BootData)
             StartupSource::Run | StartupSource::RunOnce | StartupSource::StartupFolder => fact.scope == StartupScope::Machine,
             StartupSource::ScheduledTask => fact.task_privileged,
             StartupSource::Service => true,
+            // Per-user state, exactly what Settings → Startup apps changes.
+            StartupSource::PackagedApp => false,
         };
         let protected = is_microsoft && matches!(fact.source, StartupSource::Service | StartupSource::ScheduledTask);
-        let can_toggle = !protected && fact.source != StartupSource::RunOnce;
+        let can_toggle = !protected && !policy_locked && fact.source != StartupSource::RunOnce;
         let can_delay = !protected
             && !broken
             && match fact.source {
@@ -504,7 +524,8 @@ fn build_records(facts: Vec<StartupEntryFact>, undo: &UndoFile, boot: &BootData)
                 StartupSource::Service => state != StartupState::Disabled,
                 _ => false,
             };
-        let can_delete = broken && !protected && fact.source != StartupSource::Service;
+        let can_delete =
+            broken && !protected && !matches!(fact.source, StartupSource::Service | StartupSource::PackagedApp);
         let (impact, impact_ms) = if boot.summary.access == BootPerfAccess::Available {
             let mut keys = vec![fact.label.to_ascii_lowercase(), fact.entry_name.to_ascii_lowercase()];
             if let Some(name) = fact.target.as_deref().and_then(|t| t.file_name()) {
@@ -520,12 +541,17 @@ fn build_records(facts: Vec<StartupEntryFact>, undo: &UndoFile, boot: &BootData)
         } else {
             (StartupImpact::Unknown, None)
         };
+        // A packaged task's own name ("SamsungNotesSysTray") says more than the exe description.
+        let description = package
+            .and_then(|p| p.task_name.clone())
+            .filter(|name| !name.eq_ignore_ascii_case(&fact.label))
+            .or_else(|| version.description.clone());
         let item = StartupItem {
             id,
             name: fact.label.clone(),
             entry_name: fact.entry_name.clone(),
-            publisher: version.company.clone(),
-            description: version.description.clone(),
+            publisher,
+            description,
             command: fact.command.clone(),
             target_path: fact.target.as_ref().map(|t| t.display().to_string()),
             source: fact.source,
@@ -716,6 +742,8 @@ fn set_enabled(id: &str, item: &StartupItem, fact: &StartupEntryFact, enabled: b
             items::set_approved(root, list, &name, enabled, now_ms())
         }
         StartupLocation::Task { path } => items::set_task_enabled(path, enabled),
+        // The stored state is the switch itself; no undo record is needed.
+        StartupLocation::Package { family, task_id } => items::set_packaged_task_enabled(family, task_id, enabled),
         StartupLocation::Service { name } => {
             let mut undo = load_undo();
             let current = fact.service_start.unwrap_or(ServiceStartKind::Automatic);
@@ -815,7 +843,7 @@ fn set_delayed(id: &str, item: &StartupItem, fact: &StartupEntryFact, delayed: b
             );
             save_undo(&undo).map_err(core_to_platform)
         }
-        StartupLocation::Task { .. } => Err(PlatformError::Unsupported),
+        StartupLocation::Task { .. } | StartupLocation::Package { .. } => Err(PlatformError::Unsupported),
     }
 }
 
@@ -877,7 +905,7 @@ fn delete_broken(item: &StartupItem, fact: &StartupEntryFact) -> Result<(), Plat
             fs::write(dir.join("task.xml"), xml).map_err(|_| PlatformError::OperationFailed("backupFailed".into()))?;
             items::delete_task(path)
         }
-        StartupLocation::Service { .. } => Err(PlatformError::Unsupported),
+        StartupLocation::Service { .. } | StartupLocation::Package { .. } => Err(PlatformError::Unsupported),
     }
 }
 
@@ -893,20 +921,43 @@ pub fn startup_item_reveal_path(id: &str) -> CoreResult<PathBuf> {
     Err(CoreError::OperationFailed("targetMissing".into()))
 }
 
+/// Package logos larger than this are not inlined (the executable icon is used instead).
+const MAX_LOGO_BYTES: u64 = 256 * 1024;
+
+/// Data URL of a packaged app's logo image (PNG / JPEG only).
+fn package_logo_data_url(path: &Path) -> Option<String> {
+    let ext = path.extension()?.to_string_lossy().to_ascii_lowercase();
+    let mime = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        _ => return None,
+    };
+    if fs::metadata(path).ok()?.len() > MAX_LOGO_BYTES {
+        return None;
+    }
+    let bytes = fs::read(path).ok()?;
+    Some(format!("data:{mime};base64,{}", base64(&bytes)))
+}
+
 pub fn get_startup_icons(ids: &[String]) -> Vec<StartupIcon> {
-    let targets: Vec<(String, Option<PathBuf>)> = {
+    let targets: Vec<(String, Option<PathBuf>, Option<PathBuf>)> = {
         let cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
         ids.iter()
             .take(64)
             .map(|id| {
-                let target = cache.iter().find(|r| &r.item.id == id).and_then(|r| r.fact.target.clone());
-                (id.clone(), target)
+                let record = cache.iter().find(|r| &r.item.id == id);
+                let target = record.and_then(|r| r.fact.target.clone());
+                let logo = record.and_then(|r| r.fact.package.as_ref()).and_then(|p| p.logo_path.clone());
+                (id.clone(), target, logo)
             })
             .collect()
     };
     targets
         .into_iter()
-        .map(|(id, target)| {
+        .map(|(id, target, logo)| {
+            if let Some(url) = logo.as_deref().and_then(package_logo_data_url) {
+                return StartupIcon { id, data_url: Some(url) };
+            }
             let data_url = target.and_then(|path| {
                 // Check, release, extract, insert: icon extraction can be slow and must not
                 // serialize every other icon request behind the cache lock.
@@ -947,6 +998,7 @@ fn base64(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pctoolkit_platform::startup_items::{PackagedTaskFacts, PackagedTaskState};
     use pctoolkit_platform::RegistryKeyPath;
 
     fn ids(list: &[&str]) -> Vec<String> {
@@ -1067,7 +1119,76 @@ mod tests {
             service_start: None,
             microsoft_task: false,
             task_privileged: false,
+            package: None,
         }
+    }
+
+    fn packaged_fact(family: &str, task_id: &str, state: PackagedTaskState, publisher: &str) -> StartupEntryFact {
+        StartupEntryFact {
+            source: StartupSource::PackagedApp,
+            scope: StartupScope::User,
+            entry_name: task_id.into(),
+            label: "Vendor App".into(),
+            command: "app\\Missing.exe".into(),
+            target: Some(PathBuf::from("C:\\Definitely\\Missing\\Package\\app\\Missing.exe")),
+            location: StartupLocation::Package { family: family.into(), task_id: task_id.into() },
+            enabled: state.is_enabled(),
+            disabled_at_ms: None,
+            service_start: None,
+            microsoft_task: false,
+            task_privileged: false,
+            package: Some(PackagedTaskFacts {
+                family_name: family.into(),
+                full_name: format!("{family}_1.0.0.0_x64__"),
+                task_id: task_id.into(),
+                task_name: Some("VendorTray".into()),
+                publisher: publisher.into(),
+                is_system: false,
+                logo_path: None,
+                state,
+            }),
+        }
+    }
+
+    #[test]
+    fn packaged_ids_round_trip_family_and_task() {
+        let fact = packaged_fact("Vendor.App_abc123", "Tray.Start", PackagedTaskState::Enabled, "Vendor");
+        let id = item_id(&fact);
+        assert_eq!(id, "pkg:Vendor.App_abc123:Tray.Start");
+        let (family, task) = id.strip_prefix("pkg:").and_then(|rest| rest.split_once(':')).unwrap();
+        assert_eq!(
+            StartupLocation::Package { family: family.into(), task_id: task.into() },
+            fact.location,
+            "family names never contain ':', so the id splits back into its location"
+        );
+    }
+
+    #[test]
+    fn packaged_records_toggle_per_user_and_never_delay_or_delete() {
+        let boot = summarize_boot(BootPerfAccess::NeedsAdmin, &[], 0);
+        let undo = UndoFile { version: 1, ..Default::default() };
+        let facts = vec![
+            packaged_fact("Vendor.App_a", "Tray", PackagedTaskState::Enabled, "Vendor Inc."),
+            packaged_fact("Vendor.App_b", "Tray", PackagedTaskState::DisabledByUser, "Vendor Inc."),
+            packaged_fact("Vendor.App_c", "Tray", PackagedTaskState::EnabledByPolicy, "Vendor Inc."),
+            packaged_fact("Microsoft.YourPhone_x", "Start", PackagedTaskState::Enabled, "Microsoft Corporation"),
+        ];
+        let records = build_records(facts, &undo, &boot);
+        assert_eq!(records.len(), 4);
+        let enabled = &records[0].item;
+        assert_eq!(enabled.state, StartupState::Enabled);
+        assert_eq!(enabled.publisher.as_deref(), Some("Vendor Inc."));
+        assert_eq!(enabled.description.as_deref(), Some("VendorTray"));
+        assert!(enabled.can_toggle && !enabled.requires_admin);
+        assert!(!enabled.can_delay && !enabled.can_delete && !enabled.broken, "missing package files are not broken entries");
+        assert_eq!(records[1].item.state, StartupState::Disabled);
+        let policy = &records[2].item;
+        assert_eq!(policy.state, StartupState::Enabled);
+        assert!(!policy.can_toggle, "policy-controlled tasks are read-only");
+        let microsoft = &records[3].item;
+        assert!(microsoft.is_microsoft);
+        assert!(microsoft.can_toggle, "Settings lets users switch Microsoft packaged apps too");
+        assert!(visible(microsoft, false), "only Microsoft tasks / services are hidden by default");
     }
 
     #[test]
