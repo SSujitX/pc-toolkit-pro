@@ -252,6 +252,16 @@ export class HistoryService {
   static clear(): Promise<void> {
     return invoke('clear_history');
   }
+
+  static getSettings(): Promise<import('@/lib/models/history').HistorySettings> {
+    return invoke('get_history_settings');
+  }
+
+  static updateSettings(
+    settings: import('@/lib/models/history').HistorySettings
+  ): Promise<import('@/lib/models/history').HistorySettings> {
+    return invoke('update_history_settings', { settings });
+  }
 }
 
 export class MemoryCleanerService {
@@ -296,13 +306,214 @@ export class MemoryCleanerService {
     return invoke('get_elevation_status');
   }
 
+  /** Auto-clean runs in Rust (interval + low memory); this only observes finished runs. */
+  static onAutoOptimized(
+    handler: (event: import('@/lib/models/memory-cleaner').MemoryAutoOptimizedEvent) => void
+  ): Promise<UnlistenFn> {
+    return listen<import('@/lib/models/memory-cleaner').MemoryAutoOptimizedEvent>(
+      'memory-auto-optimized',
+      (e) => handler(e.payload)
+    );
+  }
+
   static restartAsAdministrator(): Promise<void> {
     return invoke('restart_as_administrator');
+  }
+}
+
+export class UninstallerService {
+  static async listProgramsWithProgress(
+    handler: (progress: import('@/lib/models/uninstaller').UninstallerProgress) => void
+  ): Promise<import('@/lib/models/uninstaller').ProgramInventory> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/uninstaller').UninstallerProgress>(
+        'uninstaller-progress',
+        (e) => {
+          if (e.payload.phase === 'listing') handler(e.payload);
+        }
+      );
+      return await invoke('list_installed_programs');
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static async uninstallWithProgress(
+    programId: string,
+    options: import('@/lib/models/uninstaller').UninstallOptions,
+    handler: (progress: import('@/lib/models/uninstaller').UninstallerProgress) => void
+  ): Promise<import('@/lib/models/uninstaller').UninstallReport> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/uninstaller').UninstallerProgress>(
+        'uninstaller-progress',
+        // A quiet inventory refresh may still be emitting listing events.
+        (e) => {
+          if (e.payload.phase !== 'listing') handler(e.payload);
+        }
+      );
+      return await invoke('uninstall_program_command', {
+        request: {
+          programId,
+          quiet: options.quiet,
+          createRestorePoint: options.createRestorePoint,
+          scanLeftovers: options.scanLeftovers,
+        },
+      });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static async scanLeftoversWithProgress(
+    programId: string,
+    handler: (progress: import('@/lib/models/uninstaller').UninstallerProgress) => void
+  ): Promise<import('@/lib/models/uninstaller').LeftoverScan> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/uninstaller').UninstallerProgress>(
+        'uninstaller-progress',
+        // A quiet inventory refresh may still be emitting listing events.
+        (e) => {
+          if (e.payload.phase !== 'listing') handler(e.payload);
+        }
+      );
+      return await invoke('scan_program_leftovers_command', { request: { programId } });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static async cleanLeftoversWithProgress(
+    scanId: string,
+    itemIds: string[],
+    handler: (progress: import('@/lib/models/uninstaller').UninstallerProgress) => void
+  ): Promise<import('@/lib/models/uninstaller').LeftoverCleanResult> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/uninstaller').UninstallerProgress>(
+        'uninstaller-progress',
+        // A quiet inventory refresh may still be emitting listing events.
+        (e) => {
+          if (e.payload.phase !== 'listing') handler(e.payload);
+        }
+      );
+      return await invoke('clean_uninstall_leftovers', { request: { scanId, itemIds } });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static getIcons(programIds: string[]): Promise<import('@/lib/models/uninstaller').ProgramIcon[]> {
+    return invoke('get_program_icons_command', { request: { programIds } });
+  }
+
+  static dismissRemoved(programId: string): Promise<void> {
+    return invoke('dismiss_removed_program_command', { request: { programId } });
+  }
+
+  /** Bring the vendor uninstaller window to the front; false when none is visible. */
+  static focusUninstaller(): Promise<boolean> {
+    return invoke('focus_uninstaller_window');
+  }
+
+  static cancel(): Promise<void> {
+    return invoke('cancel_uninstaller');
   }
 }
 
 export class SettingsApi {
   static openAppDataFolder(): Promise<void> {
     return invoke('open_app_data_folder');
+  }
+
+  static getStartupSettings(): Promise<import('@/lib/models/app-settings').AppStartupStatus> {
+    return invoke('get_app_startup_settings');
+  }
+
+  static setStartupSettings(
+    settings: import('@/lib/models/app-settings').AppStartupSettings
+  ): Promise<import('@/lib/models/app-settings').AppStartupStatus> {
+    return invoke('set_app_startup_settings', { settings });
+  }
+}
+
+export class CareService {
+  static async scanWithProgress(
+    categories: import('@/lib/models/care').CareCategoryId[],
+    handler: (progress: import('@/lib/models/care').CareProgress) => void
+  ): Promise<import('@/lib/models/care').CareScanReport> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/care').CareProgress>('care-progress', (e) =>
+        handler(e.payload)
+      );
+      return await invoke('scan_care', { categories });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static async fixWithProgress(
+    request: import('@/lib/models/care').CareFixRequest,
+    handler: (progress: import('@/lib/models/care').CareProgress) => void
+  ): Promise<import('@/lib/models/care').CareFixReport> {
+    let unlisten: UnlistenFn | undefined;
+    try {
+      unlisten = await listen<import('@/lib/models/care').CareProgress>('care-progress', (e) =>
+        handler(e.payload)
+      );
+      return await invoke('fix_care', { request });
+    } finally {
+      unlisten?.();
+    }
+  }
+
+  static stop(): Promise<void> {
+    return invoke('stop_care');
+  }
+
+  static skip(category: import('@/lib/models/care').CareCategoryId): Promise<void> {
+    return invoke('skip_care_category', { category });
+  }
+
+  /** Open the Windows page behind an informational item (allowlisted action ids only). */
+  static cancelAfterAction(): Promise<void> {
+    return invoke('cancel_care_after_action');
+  }
+
+  static listUndoRecords(): Promise<import('@/lib/models/care').CareUndoRecord[]> {
+    return invoke('list_care_undo_records');
+  }
+
+  static undo(recordIds: string[]): Promise<import('@/lib/models/care').CareUndoOutcome[]> {
+    return invoke('undo_care_fixes', { recordIds });
+  }
+
+  static openAction(action: string): Promise<void> {
+    return invoke('open_care_action', { action });
+  }
+}
+
+export class StartupService {
+  static list(includeMicrosoft: boolean): Promise<import('@/lib/models/startup').StartupInventory> {
+    return invoke('list_startup_items_command', { request: { includeMicrosoft } });
+  }
+
+  /** Items are addressed by id from the latest listing; Core resolves locations itself. */
+  static action(
+    id: string,
+    action: import('@/lib/models/startup').StartupActionKind
+  ): Promise<import('@/lib/models/startup').StartupActionResult> {
+    return invoke('startup_item_action_command', { request: { id, action } });
+  }
+
+  static getIcons(ids: string[]): Promise<import('@/lib/models/startup').StartupIcon[]> {
+    return invoke('get_startup_icons_command', { request: { ids } });
+  }
+
+  static reveal(id: string): Promise<void> {
+    return invoke('reveal_startup_item_command', { request: { id } });
   }
 }
