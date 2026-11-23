@@ -1,0 +1,81 @@
+# Special (non-walk) Deep Cleanup rules: OS-owned Disk Cleanup handlers and
+# tool-owned stores driven through the tool's own CLI. No roots or matchers; each
+# kind fixes its group, elevation, and whether Smart selection may pick it (the
+# catalog gate enforces this). See README.md.
+
+# --- Windows Disk Cleanup handlers (IEmptyVolumeCache, system drive) ---------------
+# Internet Cache Files and Windows Error Reporting Files are covered by the walk
+# rules system.internetTemp / system.errorReports / system.systemErrorReports in
+# system.toml, so their handlers are not declared again (no data offered twice).
+
+[[rule]]
+id = "system.deliveryOptimization"
+group = "system"
+name_key = "deepCleaner.rules.deliveryOptimization"
+detail_key = "deepCleaner.rules.deliveryOptimizationDetail"
+risk = "recoverable"
+recommended = true
+kind = "disk_cleanup_delivery_optimization"
+
+[[rule]]
+id = "system.defenderCache"
+group = "system"
+name_key = "deepCleaner.special.defenderCache"
+detail_key = "deepCleaner.special.defenderCacheDetail"
+risk = "safe"
+recommended = true
+kind = "disk_cleanup_defender_cache"
+
+[[rule]]
+id = "system.temporarySetupFiles"
+group = "system"
+name_key = "deepCleaner.special.temporarySetupFiles"
+detail_key = "deepCleaner.special.temporarySetupFilesDetail"
+risk = "recoverable"
+requires_elevation = true
+kind = "disk_cleanup_temporary_setup_files"
+
+[[rule]]
+id = "system.updateCleanup"
+group = "system"
+name_key = "deepCleaner.special.updateCleanup"
+detail_key = "deepCleaner.special.updateCleanupDetail"
+risk = "recoverable"
+requires_elevation = true
+kind = "disk_cleanup_update_cleanup"
+
+# Windows.old is removed only through the Previous Installations handler.
+[[rule]]
+id = "system.previousInstallations"
+group = "system"
+name_key = "deepCleaner.rules.previousInstallations"
+detail_key = "deepCleaner.rules.previousInstallationsDetail"
+risk = "recoverable"
+requires_elevation = true
+kind = "disk_cleanup_previous_installations"
+
+# --- Developer tools (never preselected; hidden when the tool is missing) -----------
+
+[[rule]]
+id = "dev.dockerBuildCache"
+group = "development"
+name_key = "deepCleaner.special.dockerBuildCache"
+detail_key = "deepCleaner.special.dockerBuildCacheDetail"
+risk = "recoverable"
+kind = "docker_build_cache"
+
+[[rule]]
+id = "dev.condaClean"
+group = "development"
+name_key = "deepCleaner.special.condaClean"
+detail_key = "deepCleaner.special.condaCleanDetail"
+risk = "recoverable"
+kind = "conda_caches"
+
+[[rule]]
+id = "dev.rustToolchains"
+group = "development"
+name_key = "deepCleaner.special.rustToolchains"
+detail_key = "deepCleaner.special.rustToolchainsDetail"
+risk = "recoverable"
+kind = "rust_toolchains"
