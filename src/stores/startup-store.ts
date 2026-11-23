@@ -39,6 +39,8 @@ export const useStartupStore = defineStore('startup', {
     loading: false,
     filter: 'all' as StartupFilter,
     query: '',
+    /** Localized source labels (set by the page) so search can match "Store app", "Service", … */
+    sourceLabels: {} as Partial<Record<string, string>>,
     /** Item id → PNG data URL (`null` = no icon, show initials). */
     icons: {} as Record<string, string | null>,
     /** Ids with an action in flight. */
@@ -51,7 +53,11 @@ export const useStartupStore = defineStore('startup', {
   getters: {
     visibleItems(state): StartupItem[] {
       return sortStartupItems(
-        state.items.filter((i) => matchesStartupFilter(i, state.filter) && matchesStartupQuery(i, state.query))
+        state.items.filter(
+          (i) =>
+            matchesStartupFilter(i, state.filter) &&
+            matchesStartupQuery(i, state.query, state.sourceLabels[i.source] ?? '')
+        )
       );
     },
     filterCounts(state): Record<StartupFilter, number> {
