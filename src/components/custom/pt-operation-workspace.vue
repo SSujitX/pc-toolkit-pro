@@ -100,6 +100,9 @@ const displaySource = computed(() => {
         </div>
       </div>
 
+      <!-- Optional live detail under the stats (for example a feed of items being read). -->
+      <slot />
+
       <p v-if="hint" class="hint">{{ hint }}</p>
 
       <button

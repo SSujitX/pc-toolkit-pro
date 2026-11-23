@@ -7,7 +7,7 @@ edition = "2021"
 
 [lib]
 name = "pc_toolkit_pro_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["staticlib", "rlib"]
 
 [workspace]
 members = [".", "crates/pctoolkit-core", "crates/pctoolkit-platform"]
@@ -27,3 +27,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
 tauri-plugin-updater = "2.11.0"
+
+[target.'cfg(windows)'.dependencies]
+# Same versions Tauri's WebView2 backend uses (types must match `Webview::controller()`).
+webview2-com = "0.38"
+windows-core = "0.61"
+
+# Smaller, faster shipped binary: strip symbols, whole-program LTO, one codegen unit.
+# panic stays "unwind": the Care engine turns a panicking category into a failed result.
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
+opt-level = 3

@@ -87,3 +87,25 @@ export function freePhysicalPercent(stats: MemoryStats | null | undefined): numb
   if (!stats || stats.physicalTotal <= 0) return 0;
   return (stats.physicalAvail / stats.physicalTotal) * 100;
 }
+
+/** `memory-auto-optimized`: the Rust scheduler ran an interval / low-memory optimize. */
+export interface MemoryAutoOptimizedEvent {
+  reason: OptimizeReason;
+  /** Null when the run failed (Activity History has the details). */
+  result: MemoryOptimizeResult | null;
+}
+
+/**
+ * RAM % shown by the titlebar circle and the tray: Memory Cleaner physical load
+ * (`GetPerformanceInfo`, Task Manager semantics), falling back to the monitor snapshot
+ * only until the first stats reply arrives. Clamped to 0–100.
+ */
+export function displayedMemoryPercent(
+  stats: MemoryStats | null | undefined,
+  snapshotPercent: number | null | undefined
+): number {
+  const fromStats = stats?.physicalLoadPercent;
+  const value =
+    fromStats != null && Number.isFinite(fromStats) ? fromStats : (snapshotPercent ?? 0);
+  return Math.min(100, Math.max(0, value));
+}

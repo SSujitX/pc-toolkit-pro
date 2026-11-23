@@ -1,12 +1,12 @@
 # PC Toolkit Pro
 
-**Windows PC cleaner · RAM / memory optimizer · junk file cleaner · system monitor · power tools**
+**Windows PC cleaner · PC care scan · app uninstaller · RAM / memory optimizer · startup manager · system monitor · power tools**
 
 <p align="center">
   <img src="src/assets/brand/logo.png" alt="PC Toolkit Pro — Windows system cleaner and memory optimizer logo" width="128" />
 </p>
 
-**Free Windows system utility** to clean junk files, free RAM, monitor CPU/disk/GPU, control power options, and manage your PC from a soft modern desktop app + system tray.
+**Free Windows system utility** to run a one-click PC care scan, uninstall apps with their leftovers, clean junk and developer caches, free RAM, manage startup apps, monitor CPU/disk/GPU, and control power options — from a soft modern desktop app + system tray.
 
 ![Latest release](https://img.shields.io/github/v/release/SSujitX/pc-toolkit-pro?style=for-the-badge&label=Release&color=0ea5e9)![MIT License](https://img.shields.io/github/license/SSujitX/pc-toolkit-pro?style=for-the-badge&color=22c55e)![Windows build status](https://img.shields.io/github/actions/workflow/status/SSujitX/pc-toolkit-pro/tauri-build.yml?branch=master&style=for-the-badge&label=Windows%20Build)![GitHub stars](https://img.shields.io/github/stars/SSujitX/pc-toolkit-pro?style=for-the-badge&color=f59e0b)
 
@@ -32,13 +32,17 @@ Rebuilt from the ground up with **Tauri 2 + Vue 3 + Rust** for a fast, native-fe
 
 ## Screenshots
 
-![PC Toolkit Pro System monitor — CPU RAM disk GPU metrics and Quick Actions](images/screenshot1.png)
+![PC Toolkit Pro PC Care — one-click scan results with smart recommendation for junk, privacy, registry, startup and security](images/screenshot1.png)
 
-![PC Toolkit Pro Memory Cleaner — RAM optimizer with selectable memory areas and auto-clean](images/screenshot2.png)
+![PC Toolkit Pro PC Care — fast parallel scan with live per-category results](images/screenshot2.png)
 
-![PC Toolkit Pro Cleaner — junk file temp prefetch recycle bin disk cleanup](images/screenshot3.png)
+![PC Toolkit Pro Deep Cleanup — system, app, browser, developer caches and project build artifacts](images/screenshot3.png)
 
-![PC Toolkit Pro Information — full Windows hardware system report CPU GPU PSU](images/screenshot4.png)
+![PC Toolkit Pro Uninstaller — all desktop programs and Store apps with real icons, sizes and install dates](images/screenshot4.png)
+
+![PC Toolkit Pro Memory Cleaner — RAM optimizer with selectable memory areas and background auto-clean](images/screenshot5.png)
+
+![PC Toolkit Pro System — live CPU, RAM, disk and GPU metrics with Quick Actions](images/screenshot6.png)
 
 ---
 
@@ -50,18 +54,21 @@ Rebuilt from the ground up with **Tauri 2 + Vue 3 + Rust** for a fast, native-fe
 | Area                               | What you get                                                                                                                                                           |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Junk / disk cleaner**            | Scan → confirm → clean temp, prefetch, recycle, and related junk with progress + cancel. Default scan works without admin (skip-and-continue on denied paths).         |
-| **Deep cleaner**                   | Broader cleanup categories for deeper Windows disk cleanup sessions.                                                                                                   |
-| **Memory cleaner / RAM optimizer** | Selectable memory areas, live physical & virtual RAM stats, auto-clean (from 5 minutes + free-RAM threshold). Real Win32 APIs — honest skip when elevation is missing. |
+| **Deep Cleanup**                   | ~90 rule-based cache targets (system, apps, browsers, developer tools), project build output (`node_modules`, `target`, `bin/obj`, Unity/Unreal…, active projects protected), Windows Disk Cleanup handlers, Docker build cache, Conda, unused Rust toolchains, and local AI models. Smart recommendation, exact sizes, per-rule results; links, junctions and OneDrive placeholders are never followed. |
+| **PC Care**                        | One fast parallel scan (seconds, not minutes) over privacy traces, junk, broken shortcuts, registry leftovers, startup items, security hardening, antivirus / firewall status, Windows Update, outdated apps (winget), disk health and drive optimization. Smart recommendation picks only safe items; per-item details; settings and registry fixes can be undone. |
+| **Startup manager**                | Run keys, Startup folders, logon tasks and services: enable / disable like Task Manager, delayed start, boot impact from Windows' own boot log, "new item" flags. |
+| **Uninstaller**                    | All desktop programs and Store apps with real icons; runs the app's own uninstaller (with "the uninstaller needs you" guidance), then scans and removes leftovers — files to the Recycle Bin, registry backed up as `.reg` first. Detects apps removed by other uninstallers. |
+| **Memory cleaner / RAM optimizer** | Selectable memory areas, live physical & virtual RAM stats, auto-clean (from 5 minutes + free-RAM threshold) scheduled in the background — keeps working while the app sits in the tray. Click the titlebar RAM circle to optimize. Real Win32 APIs — honest skip when elevation is missing. |
 | **System monitor**                 | Live CPU, RAM, disk, and NVIDIA GPU metrics in-app and in the titlebar.                                                                                                |
 | **System tray**                    | Hide-to-tray, live RAM tooltip, Clean Memory, power shortcuts — same settings as the Memory page.                                                                      |
 | **Power tools**                    | Shutdown, restart, sleep, lock, and scheduled shutdown.                                                                                                                |
 | **Quick Actions**                  | One-click launch of common Windows tools and admin shells.                                                                                                             |
 | **System information**             | Full hardware report (CPU, disks, RAM, GPU, monitors, motherboard, OS, PSU when available) with clipboard export.                                                      |
-| **Activity history**               | Local history of cleaner / memory / power operations.                                                                                                                  |
-| **Settings & updates**             | Theme (light / dark / system), About dialog, and signed in-app updates from GitHub Releases.                                                                           |
+| **Activity history**               | Local history of every operation, with a configurable limit (keep the last 10, 20, … or a custom number).                                                              |
+| **Settings & updates**             | Theme (light / dark / system), Start with Windows, start minimized to tray, always run as administrator, About dialog, and signed in-app updates from GitHub Releases. |
 
 
-**Keywords this project targets:** Windows cleaner, PC cleaner, junk file cleaner, temp file cleaner, disk cleanup, RAM cleaner, memory cleaner, free RAM, memory optimizer, Windows optimizer, system utility, system tray cleaner, Tauri Windows app, Vue desktop app.
+**Keywords this project targets:** Windows cleaner, PC cleaner, PC care, app uninstaller, leftover cleaner, startup manager, node_modules cleaner, junk file cleaner, temp file cleaner, disk cleanup, RAM cleaner, memory cleaner, free RAM, memory optimizer, Windows optimizer, system utility, system tray cleaner, Tauri Windows app, Vue desktop app.
 
 ---
 
@@ -82,8 +89,8 @@ Rebuilt from the ground up with **Tauri 2 + Vue 3 + Rust** for a fast, native-fe
 
 1. Open **[Releases](https://github.com/SSujitX/pc-toolkit-pro/releases/latest)**
 2. Run the **NSIS setup** (`PC Toolkit Pro vX.Y.Z Setup.exe`) — installs for the current user to `%LOCALAPPDATA%\PC Toolkit Pro\` (Start Menu + `uninstall.exe`, no admin required for install)
-3. Optional: on **Memory Cleaner**, use **Restart as administrator** once so deep RAM clean / tray / auto-clean can use privileged Win32 APIs for that session
-4. Optional: keep the app in the tray for quick **Clean Memory** and power actions
+3. Optional: **Settings → Startup & administrator** — start with Windows (minimized to tray) and **Always run as administrator** for full memory clean, admin-only PC Care fixes and machine-wide uninstalls. Without it, admin-only items are skipped honestly and you can **Restart as administrator** when needed.
+4. Optional: keep the app in the tray for quick **Clean Memory**, auto RAM cleanup and power actions
 
 ---
 

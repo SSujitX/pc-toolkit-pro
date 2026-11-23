@@ -46,8 +46,9 @@ const ACTION_ICONS: Record<QuickActionId, Component> = {
   volumeMixer: Volume2,
 };
 
-onMounted(() => store.startPolling());
-onUnmounted(() => store.stopPolling());
+// The shell holds the same poll for the titlebar; acquire/release never stops it for others.
+onMounted(() => store.acquirePolling());
+onUnmounted(() => store.releasePolling());
 </script>
 
 <template>

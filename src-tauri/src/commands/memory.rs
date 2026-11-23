@@ -1,7 +1,8 @@
 use pctoolkit_core::{
-    cancel_memory_optimize as core_cancel, get_memory_stats as core_stats, load_settings,
-    optimize_memory as core_optimize, save_settings, CoreError, MemoryCleanerSettings,
-    MemoryOptimizeResult, MemoryProgress, MemoryStats, OptimizeMemoryRequest,
+    auto_clean_tick, cancel_memory_optimize as core_cancel, get_memory_stats as core_stats,
+    load_settings, optimize_memory as core_optimize, save_settings, start_auto_clean_schedule,
+    CoreError, MemoryCleanerSettings, MemoryOptimizeResult, MemoryProgress, MemoryStats,
+    OptimizeMemoryRequest, OptimizeReason, AUTO_CLEAN_TICK_MS,
 };
 use pctoolkit_platform::{is_user_admin, relaunch_self_elevated};
 use serde::Serialize;
@@ -89,4 +90,44 @@ pub async fn optimize_memory(
 #[tauri::command]
 pub fn cancel_memory_optimize() {
     core_cancel();
+}
+
+/// Emitted after the background scheduler ran an automatic optimize (interval or low memory).
+pub const MEMORY_AUTO_OPTIMIZED: &str = "memory-auto-optimized";
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoOptimizedEvent {
+    pub reason: OptimizeReason,
+    /// `None` when the run failed (details are in Activity History).
+    pub result: Option<MemoryOptimizeResult>,
+}
+
+/// Runs Memory Cleaner auto-clean on a dedicated thread for the life of the process.
+///
+/// The schedule lives in Rust rather than a webview timer: the main window is usually hidden in the
+/// tray, where WebView2 throttles or pauses page timers, which made intervals fire late or not at all.
+pub fn start_auto_clean_scheduler(app: AppHandle) {
+    start_auto_clean_schedule();
+    let spawned = std::thread::Builder::new()
+        .name("memory-auto-clean".into())
+        .spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(AUTO_CLEAN_TICK_MS));
+            if let Some((reason, result)) = auto_clean_tick() {
+                if let Err(error) = &result {
+                    log::warn!("memory_auto_clean_failed reason={reason:?} error={error}");
+                }
+                events::emit(
+                    &app,
+                    MEMORY_AUTO_OPTIMIZED,
+                    AutoOptimizedEvent {
+                        reason,
+                        result: result.ok(),
+                    },
+                );
+            }
+        });
+    if let Err(error) = spawned {
+        log::error!("memory_auto_clean_thread_failed error={error}");
+    }
 }

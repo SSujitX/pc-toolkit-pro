@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -34,6 +33,13 @@ pub fn schedule_shutdown(seconds: u64) -> PlatformResult<()> {
     let _ = cancel_scheduled_shutdown();
     let secs = seconds.to_string();
     run_shutdown(&["/s", "/f", "/t", &secs])
+}
+
+/// Restart after `seconds`; cancellable with [`cancel_scheduled_shutdown`] (`shutdown /a`).
+pub fn schedule_restart(seconds: u64) -> PlatformResult<()> {
+    let _ = cancel_scheduled_shutdown();
+    let secs = seconds.to_string();
+    run_shutdown(&["/r", "/f", "/t", &secs])
 }
 
 pub fn cancel_scheduled_shutdown() -> PlatformResult<()> {
@@ -80,8 +86,7 @@ fn lock_workstation() -> PlatformResult<()> {
 }
 
 fn shutdown_exe() -> PathBuf {
-    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| OsString::from(r"C:\Windows"));
-    PathBuf::from(root).join("System32").join("shutdown.exe")
+    crate::registry::system32_exe("shutdown.exe")
 }
 
 fn run_shutdown(args: &[&str]) -> PlatformResult<()> {
@@ -90,11 +95,8 @@ fn run_shutdown(args: &[&str]) -> PlatformResult<()> {
 
 fn run_shutdown_status(args: &[&str]) -> PlatformResult<()> {
     let exe = shutdown_exe();
-    let mut cmd = if exe.is_file() {
-        Command::new(&exe)
-    } else {
-        Command::new("shutdown")
-    };
+    // Absolute path only: a bare `shutdown` could resolve to a planted exe.
+    let mut cmd = Command::new(&exe);
     cmd.args(args);
     crate::process::hide_console(&mut cmd);
     // Wait + check exit code (Python used check=True). spawn-only hid failures.

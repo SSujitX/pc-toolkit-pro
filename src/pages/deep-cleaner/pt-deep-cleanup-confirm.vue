@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AppWindow, X } from '@lucide/vue';
 import { formatBytes } from '@/lib/utils/format';
 import {
   closeAppGroupsForRules,
+  ruleDetail,
+  ruleTitle,
   type DeepCleanupCloseAppGroup,
   type DeepCleanupRule,
 } from '@/lib/models/deep-cleaner';
 import { DeepCleanerService } from '@/lib/services/api-services';
+import { trapDialogFocus } from '@/lib/services/dialog-focus-service';
 
 const open = defineModel<boolean>('open', { default: false });
 
@@ -26,13 +29,43 @@ const closeGroups = ref<DeepCleanupCloseAppGroup[]>([]);
 const remainingGroups = ref<DeepCleanupCloseAppGroup[]>([]);
 const probing = ref(false);
 const closing = ref(false);
+/** Bumped on every open/close so replies from an earlier session are ignored. */
+let session = 0;
+const panel = ref<HTMLElement | null>(null);
+let releaseFocus: (() => void) | null = null;
+
+watch(
+  panel,
+  (el) => {
+    releaseFocus?.();
+    releaseFocus = el ? trapDialogFocus(el, onDismiss) : null;
+  },
+  { flush: 'post' }
+);
+onBeforeUnmount(() => releaseFocus?.());
+
+/** True when the dialog was closed (or reopened) while an await was pending. */
+function stale(token: number): boolean {
+  return token !== session || !open.value;
+}
 
 const planItems = computed(() =>
   [...props.rules].sort((a, b) => b.bytes - a.bytes).map((rule) => ({
     id: rule.id,
-    name: t(rule.nameKey),
-    detail: t(rule.detailKey),
+    name: ruleTitle(rule, t),
+    detail: ruleDetail(rule, t),
     bytes: rule.bytes,
+    unmeasured: rule.status === 'unmeasured',
+    note: rule.needsAdmin
+      ? t('deepCleaner.confirm.needsAdminNote')
+      : rule.limited
+        ? t('deepCleaner.confirm.limitedNote')
+        : rule.group === 'ai' && rule.displayName
+          ? t('deepCleaner.ai.confirmNote')
+          : rule.group === 'projects'
+            ? t('deepCleaner.projects.confirmNote')
+            : '',
+    warn: rule.needsAdmin,
   }))
 );
 
@@ -57,6 +90,7 @@ const primaryLabel = computed(() => {
 watch(
   () => open.value,
   async (isOpen) => {
+    const token = ++session;
     if (!isOpen) return;
     phase.value = 'plan';
     selectedCloseIds.value = [];
@@ -70,12 +104,13 @@ watch(
       const running = names.length
         ? await DeepCleanerService.probeRunningProcesses(names)
         : [];
+      if (stale(token)) return;
       closeGroups.value = closeAppGroupsForRules(props.rules, running);
       selectedCloseIds.value = closeGroups.value.map((group) => group.id);
     } catch {
-      closeGroups.value = [];
+      if (!stale(token)) closeGroups.value = [];
     } finally {
-      probing.value = false;
+      if (token === session) probing.value = false;
     }
   }
 );
@@ -93,12 +128,25 @@ function selectAllCloseGroups() {
 }
 
 function onCancel() {
+  if (closing.value) return;
   open.value = false;
   emit('cancel');
 }
 
+/** Overlay / X / Escape: ignored while apps are being closed so the pending close cannot run cleanup. */
+function onDismiss() {
+  onCancel();
+}
+
+function confirmIfOpen(token: number) {
+  if (stale(token)) return;
+  open.value = false;
+  emit('confirm');
+}
+
 async function onPrimary() {
   if (closing.value || probing.value) return;
+  const token = session;
 
   if (phase.value === 'force') {
     closing.value = true;
@@ -110,28 +158,26 @@ async function onPrimary() {
     } finally {
       closing.value = false;
     }
-    open.value = false;
-    emit('confirm');
+    confirmIfOpen(token);
     return;
   }
 
   if (!closeNames.value.length) {
-    open.value = false;
-    emit('confirm');
+    confirmIfOpen(token);
     return;
   }
 
   closing.value = true;
   try {
     const result = await DeepCleanerService.closeRunningProcesses(closeNames.value, false);
+    if (stale(token)) return;
     const remaining = new Set(
       result.targets
         .filter((target) => target.remainingCount > 0 || target.status !== 'closed')
         .map((target) => target.imageName.toLowerCase())
     );
     if (!remaining.size) {
-      open.value = false;
-      emit('confirm');
+      confirmIfOpen(token);
       return;
     }
     remainingGroups.value = selectedCloseGroups.value
@@ -142,34 +188,46 @@ async function onPrimary() {
       .filter((group) => group.processes.length > 0);
     phase.value = 'force';
   } catch {
-    open.value = false;
-    emit('confirm');
+    confirmIfOpen(token);
   } finally {
     closing.value = false;
   }
 }
 
 function skipForce() {
-  open.value = false;
-  emit('confirm');
+  if (closing.value) return;
+  confirmIfOpen(session);
 }
 </script>
 
 <template>
-  <div v-if="open" class="confirm-root" role="dialog" aria-modal="true">
-    <div class="confirm-overlay" @click="onCancel" />
-    <div class="confirm-panel">
+  <div
+    v-if="open"
+    class="confirm-root"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="pt-deep-cleanup-confirm-title"
+    :aria-busy="closing || probing"
+  >
+    <div class="confirm-overlay" @click="onDismiss" />
+    <div ref="panel" class="confirm-panel">
       <header class="confirm-head">
         <div>
-          <h2>{{ t('deepCleaner.confirm.title') }}</h2>
+          <h2 id="pt-deep-cleanup-confirm-title">{{ t('deepCleaner.confirm.title') }}</h2>
           <p class="summary">
-            <span>{{ t('deepCleaner.confirm.selectedCount', { count: rules.length }) }}</span>
+            <span>{{ t('deepCleaner.confirm.selectedCount', { count: rules.length }, rules.length) }}</span>
             <span aria-hidden="true">·</span>
             <span>{{ t('deepCleaner.confirm.estimated') }}</span>
             <strong>{{ formatBytes(selectedBytes) }}</strong>
           </p>
         </div>
-        <button type="button" class="icon-btn" :aria-label="t('common.cancel')" @click="onCancel">
+        <button
+          type="button"
+          class="icon-btn"
+          :aria-label="t('common.cancel')"
+          :disabled="closing"
+          @click="onDismiss"
+        >
           <X :size="16" :stroke-width="2" />
         </button>
       </header>
@@ -198,13 +256,14 @@ function skipForce() {
                   <AppWindow :size="15" :stroke-width="1.8" />
                 </span>
                 <span class="app-copy">
-                  <strong>{{ t(group.name) }}</strong>
+                  <strong>{{ group.label ?? t(group.name) }}</strong>
                   <small>
                     {{
-                      t('deepCleaner.confirm.relatedProcess', {
-                        count: group.processCount,
-                        name: group.processes.join(', '),
-                      })
+                      t(
+                        'deepCleaner.confirm.relatedProcess',
+                        { count: group.processCount, name: group.processes.join(', ') },
+                        group.processCount
+                      )
                     }}
                   </small>
                 </span>
@@ -224,7 +283,7 @@ function skipForce() {
                 <AppWindow :size="15" :stroke-width="1.8" />
               </span>
               <span class="app-copy">
-                <strong>{{ t(group.name) }}</strong>
+                <strong>{{ group.label ?? t(group.name) }}</strong>
                 <small>{{ group.processes.join(', ') }}</small>
               </span>
             </li>
@@ -236,8 +295,11 @@ function skipForce() {
             <span class="plan-copy">
               <strong>{{ item.name }}</strong>
               <small :title="item.detail">{{ item.detail }}</small>
+              <small v-if="item.note" class="plan-note" :class="{ warn: item.warn }">
+                {{ item.note }}
+              </small>
             </span>
-            <strong class="plan-size">{{ formatBytes(item.bytes) }}</strong>
+            <strong class="plan-size">{{ item.unmeasured ? t('deepCleaner.special.sizeUnknown') : formatBytes(item.bytes) }}</strong>
           </div>
         </section>
       </div>
@@ -333,7 +395,11 @@ function skipForce() {
   color: var(--muted-foreground);
   cursor: pointer;
 }
-.icon-btn:hover {
+.icon-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.icon-btn:hover:not(:disabled) {
   background: var(--muted);
   color: var(--foreground);
 }
@@ -470,6 +536,13 @@ function skipForce() {
   font-size: 0.6875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.plan-copy .plan-note {
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.plan-copy .plan-note.warn {
+  color: color-mix(in oklab, var(--warning, #b45309) 85%, var(--foreground));
 }
 .plan-size {
   font-size: 0.8125rem;

@@ -22,7 +22,7 @@ const app = useAppStore();
 const store = useCleanerStore();
 const confirmOpen = ref(false);
 const pendingPreset = ref<CleanerPreset | null>(null);
-const elapsedSec = ref(0);
+const nowMs = ref(Date.now());
 let elapsedTimer: number | null = null;
 
 const presets: {
@@ -46,22 +46,27 @@ const sourceValue = computed(
 const stats = computed(() => [
   {
     label: t('cleaner.elapsed'),
-    value: `${elapsedSec.value} sec`,
+    value: t('common.elapsedSeconds', { count: elapsedSec.value }),
   },
 ]);
 
-watch(isBusy, (busy) => {
-  if (busy) {
-    elapsedSec.value = 0;
+// Elapsed derives from the store's start timestamp, so it stays right after re-mounting mid-run.
+const elapsedSec = computed(() =>
+  store.busySince == null ? 0 : Math.max(0, Math.floor((nowMs.value - store.busySince) / 1000))
+);
+watch(
+  isBusy,
+  (busy) => {
     if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-    elapsedTimer = window.setInterval(() => {
-      elapsedSec.value += 1;
-    }, 1000);
-  } else if (elapsedTimer != null) {
-    window.clearInterval(elapsedTimer);
     elapsedTimer = null;
-  }
-});
+    if (!busy) return;
+    nowMs.value = Date.now();
+    elapsedTimer = window.setInterval(() => {
+      nowMs.value = Date.now();
+    }, 1000);
+  },
+  { immediate: true }
+);
 
 onUnmounted(() => {
   if (elapsedTimer != null) window.clearInterval(elapsedTimer);

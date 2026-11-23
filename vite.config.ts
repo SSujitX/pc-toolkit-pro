@@ -10,8 +10,8 @@ export default defineConfig(async () => ({
   plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@assets": path.resolve(__dirname, "./src/assets"),
+      "@": path.resolve(import.meta.dirname, "./src"),
+      "@assets": path.resolve(import.meta.dirname, "./src/assets"),
     },
   },
   clearScreen: false,

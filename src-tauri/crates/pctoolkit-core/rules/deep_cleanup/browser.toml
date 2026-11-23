@@ -1,0 +1,326 @@
+# Deep Cleanup — browser rules. Schema: see README.md in this folder.
+# Cache folders only. Cookies, passwords, history, sessions, Local Storage, IndexedDB,
+# and extensions are never roots. Chromium leaves: browser-wide GPU/shader/component
+# caches under User Data, plus HTTP/code/GPU/Dawn/media/shared-dictionary caches per
+# profile (Default, Guest Profile, System Profile, Profile N).
+
+[[rule]]
+id = "browser.chromeCache"
+group = "browser"
+name_key = "deepCleaner.rules.chromeCache"
+detail_key = "deepCleaner.rules.chromeCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["chrome.exe"]
+roots = [
+  { base = "local", path = "Google/Chrome/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Google/Chrome/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Google/Chrome Beta/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Google/Chrome Beta/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Google/Chrome Dev/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Google/Chrome Dev/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Google/Chrome SxS/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Google/Chrome SxS/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.chromeOfflineCache"
+group = "browser"
+name_key = "deepCleaner.rules.chromeOfflineCache"
+detail_key = "deepCleaner.rules.chromeOfflineCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["chrome.exe"]
+roots = [
+  { base = "local", path = "Google/Chrome/User Data", children = { names = ["Default"], prefixes = ["Profile "] }, suffixes = [
+    "Offline Cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.edgeCache"
+group = "browser"
+name_key = "deepCleaner.rules.edgeCache"
+detail_key = "deepCleaner.rules.edgeCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["msedge.exe"]
+roots = [
+  { base = "local", path = "Microsoft/Edge/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge Beta/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge Beta/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge Dev/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge Dev/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge SxS/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Microsoft/Edge SxS/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.edgeOfflineCache"
+group = "browser"
+name_key = "deepCleaner.rules.edgeOfflineCache"
+detail_key = "deepCleaner.rules.edgeOfflineCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["msedge.exe"]
+roots = [
+  { base = "local", path = "Microsoft/Edge/User Data", children = { names = ["Default"], prefixes = ["Profile "] }, suffixes = [
+    "Offline Cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.braveCache"
+group = "browser"
+name_key = "deepCleaner.rules.braveCache"
+detail_key = "deepCleaner.rules.braveCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["brave.exe"]
+roots = [
+  { base = "local", path = "BraveSoftware/Brave-Browser/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "BraveSoftware/Brave-Browser/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "BraveSoftware/Brave-Browser-Beta/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "BraveSoftware/Brave-Browser-Beta/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "BraveSoftware/Brave-Browser-Nightly/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "BraveSoftware/Brave-Browser-Nightly/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.vivaldiCache"
+group = "browser"
+name_key = "deepCleaner.rules.vivaldiCache"
+detail_key = "deepCleaner.rules.vivaldiCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["vivaldi.exe"]
+roots = [
+  { base = "local", path = "Vivaldi/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Vivaldi/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.chromiumCache"
+group = "browser"
+name_key = "deepCleaner.rules.chromiumCache"
+detail_key = "deepCleaner.rules.chromiumCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["chromium.exe"]
+roots = [
+  { base = "local", path = "Chromium/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Chromium/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+# Opera and Opera GX keep the profile in Roaming and the HTTP cache in Local.
+[[rule]]
+id = "browser.operaCache"
+group = "browser"
+name_key = "deepCleaner.rules.operaCache"
+detail_key = "deepCleaner.rules.operaCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["opera.exe", "opera_gx.exe"]
+roots = [
+  { base = "roaming", path = "Opera Software", children = { names = ["Opera Stable", "Opera GX Stable"] }, suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache", "Cache", "Code Cache", "GPUCache",
+    "DawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+  { base = "local", path = "Opera Software", children = { names = ["Opera Stable", "Opera GX Stable"] }, suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache", "Cache", "Code Cache", "GPUCache",
+    "DawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+# Arc is an MSIX package; its Chromium User Data lives in the package LocalCache.
+[[rule]]
+id = "browser.arcCache"
+group = "browser"
+name_key = "deepCleaner.rules.arcCache"
+detail_key = "deepCleaner.rules.arcCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["Arc.exe"]
+roots = [
+  { base = "local", path = "Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Packages/TheBrowserCompany.Arc_*/LocalCache/Local/Arc/User Data", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+# DuckDuckGo for Windows renders with WebView2 (EBWebView user-data folder).
+[[rule]]
+id = "browser.duckduckgoCache"
+group = "browser"
+name_key = "deepCleaner.rules.duckduckgoCache"
+detail_key = "deepCleaner.rules.duckduckgoCacheDetail"
+risk = "safe"
+recommended = true
+processes = ["DuckDuckGo.exe"]
+roots = [
+  { base = "local", path = "Packages/DuckDuckGo.DesktopBrowser_*/LocalState/EBWebView", suffixes = [
+    "ShaderCache", "GrShaderCache", "GraphiteDawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GPUPersistentCache", "component_crx_cache", "extensions_crx_cache",
+  ] },
+  { base = "local", path = "Packages/DuckDuckGo.DesktopBrowser_*/LocalState/EBWebView", children = { names = ["Default", "Guest Profile", "System Profile"], prefixes = ["Profile "] }, suffixes = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "Media Cache", "Shared Dictionary/cache",
+  ] },
+]
+
+# Gecko family: the Local profile copy holds only caches (cache2, startupCache,
+# shader-cache); bookmarks, logins, and mail live in the Roaming profile.
+[[rule]]
+id = "browser.firefoxCache"
+group = "browser"
+name_key = "deepCleaner.rules.firefoxCache"
+detail_key = "deepCleaner.rules.firefoxCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["firefox.exe"]
+roots = [
+  { base = "local", path = "Mozilla/Firefox/Profiles", children = { all = true }, suffixes = [
+    "cache2", "startupCache", "shader-cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.floorpCache"
+group = "browser"
+name_key = "deepCleaner.rules.floorpCache"
+detail_key = "deepCleaner.rules.floorpCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["floorp.exe"]
+roots = [
+  { base = "local", path = "Floorp/Profiles", children = { all = true }, suffixes = [
+    "cache2", "startupCache", "shader-cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.librewolfCache"
+group = "browser"
+name_key = "deepCleaner.rules.librewolfCache"
+detail_key = "deepCleaner.rules.librewolfCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["librewolf.exe"]
+roots = [
+  { base = "local", path = "librewolf/Profiles", children = { all = true }, suffixes = [
+    "cache2", "startupCache", "shader-cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.waterfoxCache"
+group = "browser"
+name_key = "deepCleaner.rules.waterfoxCache"
+detail_key = "deepCleaner.rules.waterfoxCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["waterfox.exe"]
+roots = [
+  { base = "local", path = "Waterfox/Profiles", children = { all = true }, suffixes = [
+    "cache2", "startupCache", "shader-cache",
+  ] },
+]
+
+[[rule]]
+id = "browser.thunderbirdCache"
+group = "browser"
+name_key = "deepCleaner.rules.thunderbirdCache"
+detail_key = "deepCleaner.rules.thunderbirdCacheDetail"
+risk = "safe"
+recommended = false
+processes = ["thunderbird.exe"]
+roots = [
+  { base = "local", path = "Thunderbird/Profiles", children = { all = true }, suffixes = [
+    "cache2", "startupCache", "shader-cache",
+  ] },
+]

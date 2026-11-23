@@ -8,13 +8,23 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
 use crate::history::{append_history, history_now_ms, HistoryOutcome, HistoryWrite};
 use crate::shared::{CoreError, CoreResult};
 
 static CANCELLED: AtomicBool = AtomicBool::new(false);
 static BUSY: AtomicBool = AtomicBool::new(false);
+/// Wall-clock ms of the last finished optimize (any reason). The interval schedule counts from it,
+/// so a manual or tray clean postpones the next scheduled one, like a reset timer.
+static LAST_OPTIMIZE_MS: AtomicI64 = AtomicI64::new(0);
+/// Wall-clock ms of the last low-memory triggered optimize (cooldown anchor).
+static LAST_LOW_MEMORY_MS: AtomicI64 = AtomicI64::new(0);
+
+/// Minimum time between two low-memory triggered optimizations.
+pub const LOW_MEMORY_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+/// How often the background scheduler wakes up to evaluate the auto-clean policy.
+pub const AUTO_CLEAN_TICK_MS: u64 = 15_000;
 
 pub const AUTO_INTERVAL_STEPS_MINUTES: [u32; 14] =
     [0, 5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 360, 720, 1440];
@@ -196,23 +206,29 @@ pub fn cancel_memory_optimize() {
     CANCELLED.store(true, Ordering::SeqCst);
 }
 
-fn acquire_busy() -> CoreResult<()> {
+/// Holds the memory-optimize busy flag; dropping it releases the flag, so an early
+/// return or a panic never leaves optimize permanently "busy".
+struct BusyGuard(());
+
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        BUSY.store(false, Ordering::SeqCst);
+    }
+}
+
+fn acquire_busy() -> CoreResult<BusyGuard> {
     if BUSY.swap(true, Ordering::SeqCst) {
         return Err(CoreError::OperationBusy);
     }
     CANCELLED.store(false, Ordering::SeqCst);
-    Ok(())
-}
-
-fn release_busy() {
-    BUSY.store(false, Ordering::SeqCst);
+    Ok(BusyGuard(()))
 }
 
 pub fn optimize_memory(
     request: OptimizeMemoryRequest,
     mut on_progress: impl FnMut(MemoryProgress),
 ) -> CoreResult<MemoryOptimizeResult> {
-    acquire_busy()?;
+    let _busy = acquire_busy()?;
     let started_at_ms = history_now_ms();
     let reason = request.reason;
     let areas = match request.areas {
@@ -221,7 +237,6 @@ pub fn optimize_memory(
     };
 
     if areas.is_empty() {
-        release_busy();
         return Err(CoreError::InvalidInput(
             "select at least one memory area".into(),
         ));
@@ -313,6 +328,10 @@ pub fn optimize_memory(
             detail: Some(format!("freed={}", mem.freed_bytes)),
         });
 
+        LAST_OPTIMIZE_MS.store(finished_at_ms, Ordering::SeqCst);
+        if reason == OptimizeReason::LowMemory {
+            LAST_LOW_MEMORY_MS.store(finished_at_ms, Ordering::SeqCst);
+        }
         Ok(mem)
     })();
 
@@ -335,8 +354,85 @@ pub fn optimize_memory(
         });
     }
 
-    release_busy();
     result
+}
+
+/// Pure auto-clean policy. Times are wall-clock ms (they keep counting across sleep/hibernate).
+///
+/// - Interval: fire when `interval_minutes > 0` and a full interval passed since `last_optimize_ms`
+///   (the scheduler seeds that with its start time, so the first run waits one full interval).
+/// - Low memory: fire when `free_below_percent > 0`, free physical memory is below it, and the
+///   low-memory cooldown has elapsed.
+pub fn auto_clean_decision(
+    settings: &MemoryCleanerSettings,
+    free_percent: f64,
+    now_ms: i64,
+    last_optimize_ms: i64,
+    last_low_memory_ms: i64,
+) -> Option<OptimizeReason> {
+    if settings.auto_interval_minutes > 0 {
+        let interval_ms = i64::from(settings.auto_interval_minutes) * 60_000;
+        if now_ms.saturating_sub(last_optimize_ms) >= interval_ms {
+            return Some(OptimizeReason::Schedule);
+        }
+    }
+    if settings.auto_free_below_percent > 0
+        && free_percent < f64::from(settings.auto_free_below_percent)
+        && (last_low_memory_ms == 0
+            || now_ms.saturating_sub(last_low_memory_ms) >= LOW_MEMORY_COOLDOWN_MS)
+    {
+        return Some(OptimizeReason::LowMemory);
+    }
+    None
+}
+
+/// Call once when the background scheduler starts: the first interval counts from now.
+pub fn start_auto_clean_schedule() {
+    let now = history_now_ms();
+    let _ = LAST_OPTIMIZE_MS.compare_exchange(0, now, Ordering::SeqCst, Ordering::SeqCst);
+}
+
+/// One scheduler tick: reads the saved settings and free memory, runs the selected areas when the
+/// policy says so. Returns `None` when nothing was due (or another optimize is running).
+/// Runs without UI, so privileged areas are skipped honestly when the process is not elevated.
+pub fn auto_clean_tick() -> Option<(OptimizeReason, CoreResult<MemoryOptimizeResult>)> {
+    let settings = load_settings();
+    if settings.auto_interval_minutes == 0 && settings.auto_free_below_percent == 0 {
+        return None;
+    }
+    let free_percent = memory_stats()
+        .ok()
+        .filter(|s| s.physical_total > 0)
+        .map(|s| s.physical_avail as f64 / s.physical_total as f64 * 100.0)
+        .unwrap_or(100.0);
+    let now = history_now_ms();
+    let reason = auto_clean_decision(
+        &settings,
+        free_percent,
+        now,
+        LAST_OPTIMIZE_MS.load(Ordering::SeqCst),
+        LAST_LOW_MEMORY_MS.load(Ordering::SeqCst),
+    )?;
+    let result = optimize_memory(
+        OptimizeMemoryRequest {
+            areas: None,
+            reason,
+        },
+        |_| {},
+    );
+    match &result {
+        // A manual / tray clean is running; it resets the schedule when it finishes.
+        Err(CoreError::OperationBusy) => return None,
+        // No areas selected or a hard failure: wait a full period instead of retrying every tick.
+        Err(_) => {
+            LAST_OPTIMIZE_MS.store(now, Ordering::SeqCst);
+            if reason == OptimizeReason::LowMemory {
+                LAST_LOW_MEMORY_MS.store(now, Ordering::SeqCst);
+            }
+        }
+        Ok(_) => {}
+    }
+    Some((reason, result))
 }
 
 fn format_area_line(outcome: &AreaOutcome) -> String {
@@ -380,6 +476,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn busy_guard_releases_on_drop_and_on_panic() {
+        let guard = acquire_busy().expect("first acquire");
+        assert!(matches!(acquire_busy(), Err(CoreError::OperationBusy)));
+        drop(guard);
+        let panicked = std::panic::catch_unwind(|| {
+            let _busy = acquire_busy().expect("acquire after drop");
+            panic!("simulated optimize panic");
+        });
+        assert!(panicked.is_err());
+        let _again = acquire_busy().expect("flag released by unwinding");
+    }
+
+    #[test]
     fn normalize_clears_standby_mutex() {
         let mut settings = default_settings();
         settings
@@ -392,6 +501,40 @@ mod tests {
         assert_eq!(
             normalized.areas.get("standbyListLowPriority"),
             Some(&false)
+        );
+    }
+
+    fn auto_settings(interval: u32, below: u32) -> MemoryCleanerSettings {
+        MemoryCleanerSettings {
+            auto_interval_minutes: interval,
+            auto_free_below_percent: below,
+            ..default_settings()
+        }
+    }
+
+    #[test]
+    fn auto_clean_interval_waits_a_full_period() {
+        let s = auto_settings(5, 0);
+        let start = 1_000_000;
+        assert_eq!(auto_clean_decision(&s, 50.0, start + 4 * 60_000, start, 0), None);
+        assert_eq!(
+            auto_clean_decision(&s, 50.0, start + 5 * 60_000, start, 0),
+            Some(OptimizeReason::Schedule)
+        );
+        // Off means never.
+        assert_eq!(auto_clean_decision(&auto_settings(0, 0), 1.0, i64::MAX / 2, 0, 0), None);
+    }
+
+    #[test]
+    fn auto_clean_low_memory_respects_threshold_and_cooldown() {
+        let s = auto_settings(0, 20);
+        let now = 10_000_000;
+        assert_eq!(auto_clean_decision(&s, 25.0, now, now, 0), None);
+        assert_eq!(auto_clean_decision(&s, 15.0, now, now, 0), Some(OptimizeReason::LowMemory));
+        assert_eq!(auto_clean_decision(&s, 15.0, now, now, now - 60_000), None);
+        assert_eq!(
+            auto_clean_decision(&s, 15.0, now, now, now - LOW_MEMORY_COOLDOWN_MS),
+            Some(OptimizeReason::LowMemory)
         );
     }
 

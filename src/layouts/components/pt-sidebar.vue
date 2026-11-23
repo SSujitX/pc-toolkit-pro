@@ -7,6 +7,8 @@ import {
   History,
   Info,
   Layers,
+  HeartPulse,
+  PackageX,
   Paintbrush,
   PanelLeftClose,
   PanelLeftOpen,
@@ -40,6 +42,8 @@ const iconMap: Record<NavIconId, unknown> = {
   broom: Paintbrush,
   layers: Layers,
   brain: Brain,
+  'heart-pulse': HeartPulse,
+  'package-x': PackageX,
   power: Power,
   info: Info,
   history: History,
@@ -165,6 +169,13 @@ function onLeave() {
   background: var(--sidebar);
   color: var(--sidebar-foreground);
   border-right: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+/* Hover peek over the rail: overlay the workspace instead of widening the layout slot. */
+.sidebar.peeking {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--layout-sidebar-expanded-width);
+  box-shadow: 10px 0 28px -16px color-mix(in oklab, var(--foreground) 35%, transparent);
 }
 
 .brand-block {
@@ -313,6 +324,18 @@ function onLeave() {
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: icon-spin 0.85s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Busy page: a steady pulsing ring instead of a spinner. */
+  .nav-busy {
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+    animation: nav-busy-pulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes nav-busy-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 .nav-label {
   max-width: 0;

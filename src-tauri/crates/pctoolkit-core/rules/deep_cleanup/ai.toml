@@ -1,0 +1,18 @@
+# Deep Cleanup — AI tool rules (group = "ai"). Schema: see README.md in this folder.
+#
+# Downloaded model weights are handled by the `cleaner_ai_models` provider (never
+# recommended) and are never TOML roots. Only static AI-tool caches belong here.
+
+[[rule]]
+id = "ai.huggingfaceXetCache"
+group = "ai"
+name_key = "deepCleaner.rules.huggingfaceXetCache"
+detail_key = "deepCleaner.rules.huggingfaceXetCacheDetail"
+risk = "recoverable"
+recommended = false
+# Xet storage chunk/shard caches and logs. The staging folder (in-progress uploads and
+# downloads) is kept, and the hub model snapshots next to this folder are not roots.
+roots = [
+  { base = "home", path = ".cache/huggingface/xet", env = [{ var = "HF_XET_CACHE" }, { var = "HF_HOME", path = "xet" }] },
+]
+matcher = { path_segments = ["chunk-cache", "chunk_cache", "shard-cache", "shard_cache", "logs"], not = { path_segments = ["staging"] } }

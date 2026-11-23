@@ -11,6 +11,8 @@ export const useSystemInfoStore = defineStore('systemInfo', {
   state: () => ({
     info: null as SystemInformation | null,
     loading: false,
+    /** Epoch ms when the running load started (drives the elapsed clock). */
+    busySince: null as number | null,
     copied: false,
     error: null as string | null,
     progress: null as SystemInfoProgress | null,
@@ -20,6 +22,7 @@ export const useSystemInfoStore = defineStore('systemInfo', {
       const app = useAppStore();
       app.setBusy(PAGE_IDS.information, true);
       this.loading = true;
+      this.busySince = Date.now();
       this.error = null;
       this.progress = {
         phase: 'metrics',
@@ -43,6 +46,7 @@ export const useSystemInfoStore = defineStore('systemInfo', {
         app.reportError(error);
       } finally {
         this.loading = false;
+        this.busySince = null;
         this.progress = null;
         app.setBusy(PAGE_IDS.information, false);
       }

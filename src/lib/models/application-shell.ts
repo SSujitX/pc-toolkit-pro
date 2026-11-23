@@ -6,6 +6,8 @@ export const PAGE_IDS = {
   cleaner: 'cleaner',
   deepCleaner: 'deepCleaner',
   memoryCleaner: 'memoryCleaner',
+  care: 'care',
+  uninstaller: 'uninstaller',
   power: 'power',
   information: 'information',
   history: 'history',
@@ -19,6 +21,8 @@ export type NavIconId =
   | 'broom'
   | 'layers'
   | 'brain'
+  | 'heart-pulse'
+  | 'package-x'
   | 'power'
   | 'info'
   | 'history'
@@ -44,6 +48,8 @@ export const PRIMARY_NAV_GROUPS: readonly NavGroup[] = [
       { id: PAGE_IDS.cleaner, icon: 'broom' },
       { id: PAGE_IDS.deepCleaner, icon: 'layers' },
       { id: PAGE_IDS.memoryCleaner, icon: 'brain' },
+      { id: PAGE_IDS.care, icon: 'heart-pulse' },
+      { id: PAGE_IDS.uninstaller, icon: 'package-x' },
     ],
   },
   {

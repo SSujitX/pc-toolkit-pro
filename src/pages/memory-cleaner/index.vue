@@ -24,7 +24,7 @@ import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 const { t } = useI18n();
 const store = useMemoryCleanerStore();
 const confirmOpen = ref(false);
-const elapsedSec = ref(0);
+const nowMs = ref(Date.now());
 let elapsedTimer: number | null = null;
 
 const isBusy = computed(() => store.loading);
@@ -38,7 +38,7 @@ const sourceValue = computed(() => {
   return store.progress?.message || t('memoryCleaner.preparing');
 });
 const statsRows = computed(() => [
-  { label: t('memoryCleaner.elapsed'), value: `${elapsedSec.value} sec` },
+  { label: t('memoryCleaner.elapsed'), value: t('common.elapsedSeconds', { count: elapsedSec.value }) },
 ]);
 
 const physical = computed(() => store.stats);
@@ -60,27 +60,36 @@ const intervalOptions = computed(() =>
   }))
 );
 
-watch(isBusy, (busy) => {
-  if (busy) {
-    elapsedSec.value = 0;
+// Elapsed derives from the store's start timestamp, so it stays right after re-mounting mid-run.
+const elapsedSec = computed(() =>
+  store.busySince == null ? 0 : Math.max(0, Math.floor((nowMs.value - store.busySince) / 1000))
+);
+watch(
+  isBusy,
+  (busy) => {
     if (elapsedTimer != null) window.clearInterval(elapsedTimer);
-    elapsedTimer = window.setInterval(() => {
-      elapsedSec.value += 1;
-    }, 1000);
-  } else if (elapsedTimer != null) {
-    window.clearInterval(elapsedTimer);
     elapsedTimer = null;
-  }
-});
+    if (!busy) return;
+    nowMs.value = Date.now();
+    elapsedTimer = window.setInterval(() => {
+      nowMs.value = Date.now();
+    }, 1000);
+  },
+  { immediate: true }
+);
 
+// The shell holds the same poll for the titlebar; acquire/release never stops it for others.
+let holdsStats = false;
 onMounted(async () => {
+  store.acquireStatsPolling();
+  holdsStats = true;
   if (!store.settingsLoaded) await store.loadSettings();
   if (!store.elevationLoaded) await store.loadElevation();
-  store.startStatsPolling();
 });
 
 onUnmounted(() => {
-  store.stopStatsPolling();
+  if (holdsStats) store.releaseStatsPolling();
+  holdsStats = false;
   if (elapsedTimer != null) window.clearInterval(elapsedTimer);
 });
 

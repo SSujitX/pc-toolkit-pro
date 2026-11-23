@@ -16,6 +16,8 @@ import { useHistoryStore } from './history-store';
 export const useCleanerStore = defineStore('cleaner', {
   state: () => ({
     loading: false,
+    /** Epoch ms when the running operation started (drives the elapsed clock). */
+    busySince: null as number | null,
     activePreset: null as CleanerPreset | null,
     progress: null as CleanupProgress | null,
     result: null as CleanupResult | null,
@@ -28,6 +30,7 @@ export const useCleanerStore = defineStore('cleaner', {
       if (!categories.length) return;
       app.setBusy(PAGE_IDS.cleaner, true);
       this.loading = true;
+      this.busySince = Date.now();
       this.activePreset = preset;
       this.progress = null;
       this.result = null;
@@ -41,13 +44,18 @@ export const useCleanerStore = defineStore('cleaner', {
         if (!isCancelledError(error)) app.reportError(error);
       } finally {
         this.loading = false;
+        this.busySince = null;
         this.activePreset = null;
         this.progress = null;
         app.setBusy(PAGE_IDS.cleaner, false);
       }
     },
     async cancel() {
-      await CleanerService.cancel();
+      try {
+        await CleanerService.cancel();
+      } catch (error) {
+        useAppStore().reportError(error);
+      }
     },
   },
 });

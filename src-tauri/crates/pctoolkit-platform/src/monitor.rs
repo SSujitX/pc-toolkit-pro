@@ -37,6 +37,51 @@ fn cached_gpu_sample() -> Option<crate::gpu::GpuSample> {
     guard.sample.clone()
 }
 
+/// Re-enumerating volumes is the expensive part of a disk sample; doing it on every
+/// 1 s titlebar poll wasted work. Keep one list, refresh only the system drive's space
+/// numbers per poll, and re-list occasionally so drive changes are still noticed.
+const DISK_RELIST_INTERVAL: Duration = Duration::from_secs(30);
+
+fn system_drive_usage() -> (u64, u64) {
+    use sysinfo::DiskRefreshKind;
+    struct DiskCache {
+        listed_at: Instant,
+        disks: Disks,
+    }
+    static CACHE: OnceLock<Mutex<DiskCache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        Mutex::new(DiskCache {
+            listed_at: Instant::now(),
+            disks: Disks::new_with_refreshed_list(),
+        })
+    });
+    let mut guard = cache.lock().unwrap_or_else(|p| p.into_inner());
+    if guard.listed_at.elapsed() >= DISK_RELIST_INTERVAL {
+        guard.disks.refresh(true);
+        guard.listed_at = Instant::now();
+    }
+    let system_mount = system_drive_mount();
+    guard
+        .disks
+        .list_mut()
+        .iter_mut()
+        .find(|d| {
+            let mount = d.mount_point().to_string_lossy();
+            mount.eq_ignore_ascii_case(&system_mount) || mount == "/"
+        })
+        .map(|d| {
+            d.refresh_specifics(DiskRefreshKind::nothing().with_storage());
+            let total = d.total_space();
+            (total, total.saturating_sub(d.available_space()))
+        })
+        .unwrap_or((0, 0))
+}
+
+fn system_drive_mount() -> String {
+    let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".to_string());
+    format!("{}\\", drive.trim_end_matches('\\'))
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MonitorSample {
@@ -94,19 +139,7 @@ pub fn sample_monitor() -> PlatformResult<MonitorSample> {
         }
     };
 
-    let disks = Disks::new_with_refreshed_list();
-    let (disk_total, disk_used) = disks
-        .iter()
-        .find(|d| {
-            let mount = d.mount_point().to_string_lossy();
-            mount.eq_ignore_ascii_case("C:\\") || mount == "/"
-        })
-        .map(|d| {
-            let total = d.total_space();
-            let available = d.available_space();
-            (total, total.saturating_sub(available))
-        })
-        .unwrap_or((0, 0));
+    let (disk_total, disk_used) = system_drive_usage();
     let disk_percent = if disk_total == 0 {
         0.0
     } else {
@@ -144,22 +177,45 @@ pub fn boot_time_unix() -> u64 {
     0
 }
 
+/// Whether this process runs with an elevated token.
+///
+/// Reads `TokenElevation` from the process token instead of probing a privileged
+/// command (`net session` fails when the LanmanServer service is stopped, which made
+/// an elevated instance believe it was not elevated). Elevation cannot change during
+/// a process lifetime, so the first answer is cached.
 pub fn is_user_admin() -> bool {
-    #[cfg(windows)]
-    {
-        let mut cmd = std::process::Command::new("net");
-        cmd.args(["session"])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
-        crate::process::hide_console(&mut cmd);
-        cmd.status()
-            .map(|s| s.success())
-            .unwrap_or(false)
+    static ELEVATED: OnceLock<bool> = OnceLock::new();
+    *ELEVATED.get_or_init(process_token_is_elevated)
+}
+
+#[cfg(windows)]
+fn process_token_is_elevated() -> bool {
+    use windows::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
+    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    unsafe {
+        let mut token = HANDLE::default();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
+            return false;
+        }
+        let mut elevation = TOKEN_ELEVATION::default();
+        let mut len = 0u32;
+        let ok = GetTokenInformation(
+            token,
+            TokenElevation,
+            Some(&mut elevation as *mut _ as *mut core::ffi::c_void),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut len,
+        )
+        .is_ok();
+        let _ = CloseHandle(token);
+        ok && elevation.TokenIsElevated != 0
     }
-    #[cfg(not(windows))]
-    {
-        false
-    }
+}
+
+#[cfg(not(windows))]
+fn process_token_is_elevated() -> bool {
+    false
 }
 
 pub fn require_admin() -> PlatformResult<()> {

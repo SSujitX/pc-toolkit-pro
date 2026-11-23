@@ -1,0 +1,129 @@
+# Deep Cleanup — system rules. Schema: see README.md in this folder.
+# Paths are original PC Toolkit Pro definitions of public Windows cache locations.
+
+[[rule]]
+id = "system.recycleBin"
+group = "system"
+name_key = "deepCleaner.rules.recycleBin"
+detail_key = "deepCleaner.rules.recycleBinDetail"
+risk = "recoverable"
+recommended = false
+# Size via SHQueryRecycleBinW, empty via SHEmptyRecycleBinW. Never walks $Recycle.Bin.
+kind = "recycle_bin"
+
+[[rule]]
+id = "system.thumbnailCache"
+group = "system"
+name_key = "deepCleaner.rules.thumbnailCache"
+detail_key = "deepCleaner.rules.thumbnailCacheDetail"
+risk = "safe"
+recommended = true
+roots = [{ base = "local", path = "Microsoft/Windows/Explorer" }]
+matcher = { name_contains = ["thumbcache_", "iconcache"], max_depth = 0 }
+
+[[rule]]
+id = "system.internetTemp"
+group = "system"
+name_key = "deepCleaner.rules.internetTemp"
+detail_key = "deepCleaner.rules.internetTempDetail"
+risk = "safe"
+recommended = true
+roots = [
+  { base = "local", path = "Microsoft/Windows/INetCache" },
+  { base = "local", path = "Temp/Low" },
+]
+
+[[rule]]
+id = "system.userTemp"
+group = "system"
+name_key = "deepCleaner.rules.userTemp"
+detail_key = "deepCleaner.rules.userTempDetail"
+risk = "safe"
+recommended = true
+roots = [
+  { base = "temp" },
+  { base = "local", path = "Temp" },
+]
+
+[[rule]]
+id = "system.directxShaderCache"
+group = "system"
+name_key = "deepCleaner.rules.directxShaderCache"
+detail_key = "deepCleaner.rules.directxShaderCacheDetail"
+risk = "safe"
+recommended = true
+roots = [
+  { base = "local", path = "D3DSCache" },
+  { base = "local", children = { names = ["NVIDIA", "NVIDIA Corporation", "AMD", "Intel"] }, suffixes = [
+    "DXCache", "GLCache", "NV_Cache", "DxcCache", "VkCache", "ShaderCache", "D3DSCache",
+  ] },
+]
+
+[[rule]]
+id = "system.errorReports"
+group = "system"
+name_key = "deepCleaner.rules.errorReports"
+detail_key = "deepCleaner.rules.errorReportsDetail"
+risk = "safe"
+recommended = true
+roots = [
+  { base = "local", path = "CrashDumps" },
+  { base = "local", path = "Microsoft/Windows/WER", suffixes = ["ReportArchive", "ReportQueue", "Temp"] },
+]
+
+[[rule]]
+id = "system.systemErrorReports"
+group = "system"
+name_key = "deepCleaner.rules.systemErrorReports"
+detail_key = "deepCleaner.rules.systemErrorReportsDetail"
+risk = "safe"
+recommended = false
+# Machine-wide Windows Error Reporting queue/archive; writable only by administrators.
+requires_elevation = true
+roots = [
+  { base = "program_data", path = "Microsoft/Windows/WER", suffixes = ["ReportArchive", "ReportQueue", "Temp"] },
+]
+
+[[rule]]
+id = "system.windowsUpdateCleanup"
+group = "system"
+name_key = "deepCleaner.rules.windowsUpdateCleanup"
+detail_key = "deepCleaner.rules.windowsUpdateCleanupDetail"
+risk = "recoverable"
+recommended = false
+requires_elevation = true
+roots = [
+  { base = "windir", path = "SoftwareDistribution/Download" },
+  { base = "windir", path = "Logs/WindowsUpdate" },
+]
+
+[[rule]]
+id = "system.stalePartialDownloads"
+group = "system"
+name_key = "deepCleaner.rules.stalePartialDownloads"
+detail_key = "deepCleaner.rules.stalePartialDownloadsDetail"
+risk = "recoverable"
+recommended = false
+# The only rule allowed to look inside a personal folder; validation requires the
+# extension + age + depth filters below.
+allow_personal_folder = true
+roots = [{ base = "home", path = "Downloads" }]
+matcher = { extensions = ["crdownload", "download", "partial", "part"], older_than_days = 7, max_depth = 3 }
+
+[[rule]]
+id = "system.windowsLogs"
+group = "system"
+name_key = "deepCleaner.rules.windowsLogs"
+detail_key = "deepCleaner.rules.windowsLogsDetail"
+risk = "recoverable"
+recommended = false
+requires_elevation = true
+# Old setup / servicing / diagnostic log files only. Logs/WindowsUpdate belongs to
+# system.windowsUpdateCleanup (more specific root). Active logs are locked and skipped.
+roots = [
+  { base = "windir", path = "Logs" },
+  { base = "windir", path = "Panther" },
+  { base = "windir", path = "System32/LogFiles" },
+]
+# Answer files (unattend.xml) under Panther may be reused by setup and are kept.
+matcher = { extensions = ["log", "etl", "tmp", "old", "bak", "dmp", "txt", "xml", "cab", "err", "out", "lo_"], older_than_days = 3, not = { name_glob = ["unattend*", "autounattend*"] } }

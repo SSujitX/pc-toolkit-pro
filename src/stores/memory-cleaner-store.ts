@@ -3,7 +3,6 @@ import { MemoryCleanerService } from '@/lib/services/api-services';
 import {
   AUTO_INTERVAL_STEPS_MINUTES,
   defaultMemoryAreas,
-  freePhysicalPercent,
   type MemoryAreaId,
   type MemoryCleanerSettings,
   type MemoryOptimizeResult,
@@ -17,12 +16,15 @@ import { useAppStore } from './app-store';
 import { useHistoryStore } from './history-store';
 import { useMonitorStore } from './monitor-store';
 
-const LOW_MEMORY_COOLDOWN_MS = 5 * 60 * 1000;
-const AUTO_TICK_MS = 30_000;
+/** Settings write ordering (module scope: not UI state, never serialized). */
+let settingsWriteSeq = 0;
+let settingsWriteChain: Promise<void> = Promise.resolve();
 
 export const useMemoryCleanerStore = defineStore('memoryCleaner', {
   state: () => ({
     loading: false,
+    /** Epoch ms when the running optimize started (drives the elapsed clock). */
+    busySince: null as number | null,
     progress: null as MemoryProgress | null,
     result: null as MemoryOptimizeResult | null,
     stats: null as MemoryStats | null,
@@ -37,10 +39,13 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
     restartingElevated: false,
     elevationPromptOpen: false,
     pendingOptimizeReason: null as OptimizeReason | null,
-    lastOptimizeAt: 0,
-    lastLowMemoryOptimizeAt: 0,
-    autoTimer: null as number | null,
+    /** Listener for runs made by the Rust auto-clean scheduler. */
+    autoUnlisten: null as (() => void) | null,
     statsTimer: null as number | null,
+    statsHolders: 0,
+    statsPaused: false,
+    statsSeq: 0,
+    statsAppliedSeq: 0,
   }),
   getters: {
     selectedAreas(state): MemoryAreaId[] {
@@ -90,15 +95,24 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
       this.pendingOptimizeReason = null;
       await this.restartAsAdministrator();
     },
+    /** Explicit "continue without admin": optimize with the reason that opened the prompt. */
     async declineElevationContinue() {
       const reason = this.pendingOptimizeReason ?? 'manual';
       this.elevationPromptOpen = false;
       this.pendingOptimizeReason = null;
       await this.run(reason);
     },
+    /** Overlay click / Escape: close the prompt without optimizing. */
+    dismissElevationPrompt() {
+      this.elevationPromptOpen = false;
+      this.pendingOptimizeReason = null;
+    },
+    /**
+     * v-model setter only. It deliberately keeps `pendingOptimizeReason`: the dialog closes
+     * itself before emitting confirm/cancel, and those handlers still need the reason.
+     */
     setElevationPromptOpen(open: boolean) {
       this.elevationPromptOpen = open;
-      if (!open) this.pendingOptimizeReason = null;
     },
     async loadSettings() {
       try {
@@ -113,12 +127,23 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
         this.settingsLoaded = true;
       }
     },
-    async persistSettings() {
-      try {
-        this.settings = await MemoryCleanerService.setSettings(this.settings);
-      } catch (error) {
-        useAppStore().reportError(error);
-      }
+    /**
+     * Writes are serialized and coalesced: rapid toggles queue behind the in-flight write, a
+     * superseded write is skipped, and only the newest reply may replace local settings — so a
+     * slow earlier reply can never revert a later toggle.
+     */
+    persistSettings(): Promise<void> {
+      const seq = ++settingsWriteSeq;
+      settingsWriteChain = settingsWriteChain.then(async () => {
+        if (seq !== settingsWriteSeq) return;
+        try {
+          const saved = await MemoryCleanerService.setSettings(this.settings);
+          if (seq === settingsWriteSeq) this.settings = saved;
+        } catch (error) {
+          useAppStore().reportError(error);
+        }
+      });
+      return settingsWriteChain;
     },
     setArea(id: MemoryAreaId, enabled: boolean) {
       const areas = { ...this.settings.areas, [id]: enabled };
@@ -151,77 +176,78 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
       void this.persistSettings();
     },
     async refreshStats() {
+      const seq = ++this.statsSeq;
       try {
-        this.stats = await MemoryCleanerService.stats();
+        const next = await MemoryCleanerService.stats();
+        // Drop out-of-order replies so a slow poll cannot pin an older RAM %.
+        if (seq < this.statsAppliedSeq) return;
+        this.stats = next;
+        this.statsAppliedSeq = seq;
       } catch {
         // Browser / unsupported — leave last stats.
       }
     },
-    startStatsPolling() {
-      void this.refreshStats();
-      if (this.statsTimer != null) return;
-      // 1s — keep titlebar circle aligned with Physical memory / WMC / IObit.
-      this.statsTimer = window.setInterval(() => {
-        void this.refreshStats();
-      }, 1000);
+    /**
+     * Reference-counted 1s stats poll (titlebar circle + Memory Cleaner page). Every acquire must
+     * be paired with one release; the poll runs while any holder exists and the window is visible.
+     */
+    acquireStatsPolling() {
+      this.statsHolders += 1;
+      this.syncStatsTimer(true);
     },
-    stopStatsPolling() {
-      if (this.statsTimer != null) {
+    releaseStatsPolling() {
+      this.statsHolders = Math.max(0, this.statsHolders - 1);
+      this.syncStatsTimer(false);
+    },
+    /** Pause while the window is hidden in the tray; resumes with an immediate refresh. */
+    setStatsPollingPaused(paused: boolean) {
+      if (this.statsPaused === paused) return;
+      this.statsPaused = paused;
+      this.syncStatsTimer(!paused);
+    },
+    syncStatsTimer(refreshNow: boolean) {
+      const wanted = this.statsHolders > 0 && !this.statsPaused;
+      if (wanted && refreshNow) void this.refreshStats();
+      if (wanted && this.statsTimer == null) {
+        // 1s — keep titlebar circle aligned with Physical memory / WMC / IObit.
+        this.statsTimer = window.setInterval(() => {
+          void this.refreshStats();
+        }, 1000);
+      } else if (!wanted && this.statsTimer != null) {
         window.clearInterval(this.statsTimer);
         this.statsTimer = null;
       }
     },
-    startAutoClean() {
-      if (this.autoTimer != null) return;
-      this.autoTimer = window.setInterval(() => {
-        void this.autoTick();
-      }, AUTO_TICK_MS);
+    /**
+     * Auto-clean (interval + low free memory) is scheduled by Rust on its own thread so it keeps
+     * working while the window is hidden in the tray. The page only refreshes after each run.
+     */
+    async startAutoClean() {
+      if (this.autoUnlisten) return;
+      try {
+        this.autoUnlisten = await MemoryCleanerService.onAutoOptimized((event) => {
+          if (event.result) {
+            this.result = event.result;
+            this.isElevated = event.result.adminOptimizations || this.isElevated;
+          }
+          void useHistoryStore().load({ reportError: false });
+          void this.refreshStats();
+          void useMonitorStore().refreshQuiet();
+        });
+      } catch {
+        // Browser preview: no Tauri events.
+      }
     },
     stopAutoClean() {
-      if (this.autoTimer != null) {
-        window.clearInterval(this.autoTimer);
-        this.autoTimer = null;
-      }
-    },
-    async autoTick() {
-      if (this.loading || !this.settingsLoaded) return;
-      const now = Date.now();
-      const intervalMs = this.settings.autoIntervalMinutes * 60_000;
-
-      if (intervalMs > 0 && this.lastOptimizeAt > 0 && now - this.lastOptimizeAt >= intervalMs) {
-        await this.run('schedule');
-        return;
-      }
-      // First schedule fire: wait a full interval from app start.
-      if (intervalMs > 0 && this.lastOptimizeAt === 0) {
-        this.lastOptimizeAt = now;
-      }
-
-      const threshold = this.settings.autoFreeBelowPercent;
-      if (threshold <= 0) return;
-
-      try {
-        const stats = await MemoryCleanerService.stats();
-        this.stats = stats;
-        const freePct = freePhysicalPercent(stats);
-        if (freePct >= threshold) return;
-        if (
-          this.lastLowMemoryOptimizeAt > 0 &&
-          now - this.lastLowMemoryOptimizeAt < LOW_MEMORY_COOLDOWN_MS
-        ) {
-          return;
-        }
-        await this.run('lowMemory');
-        this.lastLowMemoryOptimizeAt = Date.now();
-      } catch {
-        // ignore auto tick failures
-      }
+      this.autoUnlisten?.();
+      this.autoUnlisten = null;
     },
     async run(reason: OptimizeReason = 'manual') {
       if (this.loading) return;
       const app = useAppStore();
       app.setBusy(PAGE_IDS.memoryCleaner, true);
       this.loading = true;
+      this.busySince = Date.now();
       this.progress = null;
       this.result = null;
       try {
@@ -233,10 +259,6 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
           this.selectedAreas
         );
         this.isElevated = this.result.adminOptimizations || this.isElevated;
-        this.lastOptimizeAt = Date.now();
-        if (reason === 'lowMemory') {
-          this.lastLowMemoryOptimizeAt = this.lastOptimizeAt;
-        }
         void useHistoryStore().load({ reportError: false });
         void this.refreshStats();
         // Titlebar / tray gauge share monitor snapshot — refresh immediately like WMC.
@@ -245,12 +267,17 @@ export const useMemoryCleanerStore = defineStore('memoryCleaner', {
         if (!isCancelledError(error)) app.reportError(error);
       } finally {
         this.loading = false;
+        this.busySince = null;
         this.progress = null;
         app.setBusy(PAGE_IDS.memoryCleaner, false);
       }
     },
     async cancel() {
-      await MemoryCleanerService.cancel();
+      try {
+        await MemoryCleanerService.cancel();
+      } catch (error) {
+        useAppStore().reportError(error);
+      }
     },
   },
 });

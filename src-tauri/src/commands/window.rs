@@ -2,9 +2,16 @@ use tauri::Manager;
 
 #[tauri::command]
 pub fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    // Started by Windows with "start minimized": stay in the tray once; later calls show normally.
+    if let Some(hidden) = app.try_state::<crate::StartHidden>() {
+        if hidden.0.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return Ok(());
+        }
+    }
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window missing".to_string())?;
+    crate::webview_memory::set_low_memory(&window, false);
     window.show().map_err(|e| e.to_string())?;
     window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
@@ -12,10 +19,12 @@ pub fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn hide_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    app.get_webview_window("main")
-        .ok_or_else(|| "main window missing".to_string())?
-        .hide()
-        .map_err(|e| e.to_string())
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window missing".to_string())?;
+    window.hide().map_err(|e| e.to_string())?;
+    crate::webview_memory::set_low_memory(&window, true);
+    Ok(())
 }
 
 #[tauri::command]
