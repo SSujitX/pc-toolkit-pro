@@ -254,6 +254,33 @@ mod imp {
         render_value(kind, &data)
     }
 
+    /// Names of every value under `path`, whatever their type (binary values included).
+    pub fn value_names(path: &RegistryKeyPath) -> PlatformResult<Vec<String>> {
+        let Some(key) = open(path, KEY_READ)? else {
+            return Ok(Vec::new());
+        };
+        let mut out = Vec::new();
+        let mut index = 0u32;
+        loop {
+            let mut name = [0u16; 16_384];
+            let mut name_len = name.len() as u32;
+            let status = unsafe {
+                RegEnumValueW(key.0, index, Some(PWSTR(name.as_mut_ptr())), &mut name_len, None, None, None, None)
+            };
+            if status == ERROR_NO_MORE_ITEMS {
+                break;
+            }
+            if status == ERROR_SUCCESS {
+                out.push(String::from_utf16_lossy(&name[..name_len as usize]));
+            }
+            index += 1;
+            if index > 100_000 {
+                break;
+            }
+        }
+        Ok(out)
+    }
+
     pub fn values(path: &RegistryKeyPath) -> PlatformResult<Vec<RegistryValueText>> {
         let Some(key) = open(path, KEY_READ)? else {
             return Ok(Vec::new());
@@ -340,7 +367,7 @@ mod imp {
 }
 
 #[cfg(windows)]
-pub use imp::{delete_tree, delete_value, key_exists, key_last_write_ms, read_value, subkey_names, values};
+pub use imp::{delete_tree, delete_value, key_exists, key_last_write_ms, read_value, subkey_names, value_names, values};
 
 #[cfg(not(windows))]
 pub fn key_exists(_path: &RegistryKeyPath) -> bool {
@@ -357,6 +384,10 @@ pub fn subkey_names(_path: &RegistryKeyPath) -> PlatformResult<Vec<String>> {
 #[cfg(not(windows))]
 pub fn read_value(_path: &RegistryKeyPath, _name: &str) -> Option<String> {
     None
+}
+#[cfg(not(windows))]
+pub fn value_names(_path: &RegistryKeyPath) -> PlatformResult<Vec<String>> {
+    Err(PlatformError::Unsupported)
 }
 #[cfg(not(windows))]
 pub fn values(_path: &RegistryKeyPath) -> PlatformResult<Vec<RegistryValueText>> {
