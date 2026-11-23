@@ -2,25 +2,44 @@
 import { computed, onMounted, onUnmounted, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
+  Activity,
   AppWindow,
+  ArchiveRestore,
+  BatteryCharging,
+  BrickWall,
+  CalendarClock,
+  ChartLine,
   CircuitBoard,
   Cpu,
+  Database,
+  Eraser,
   FileText,
   FolderOpen,
+  Gamepad2,
+  Gauge,
   HardDrive,
   Info,
   LayoutDashboard,
+  MemoryStick,
+  Monitor,
+  MonitorCog,
   Network,
   NotebookPen,
+  Package,
   RefreshCw,
+  Rocket,
   Scissors,
+  ScrollText,
   Settings,
+  ShieldCheck,
+  Speaker,
   Terminal,
+  Variable,
   Volume2,
   Wrench,
 } from '@lucide/vue';
 import PtPageShell from '@/components/custom/pt-page-shell.vue';
-import { QUICK_ACTIONS, type QuickActionId } from '@/lib/models/actions';
+import { QUICK_ACTION_GROUPS, type QuickActionId } from '@/lib/models/actions';
 import { formatBytes, formatUptime } from '@/lib/utils/format';
 import { useMonitorStore } from '@/stores/monitor-store';
 
@@ -44,6 +63,27 @@ const ACTION_ICONS: Record<QuickActionId, Component> = {
   snippingTool: Scissors,
   notepad: FileText,
   volumeMixer: Volume2,
+  eventViewer: ScrollText,
+  resourceMonitor: Activity,
+  reliabilityMonitor: ChartLine,
+  computerManagement: MonitorCog,
+  taskScheduler: CalendarClock,
+  systemProperties: Cpu,
+  environmentVariables: Variable,
+  directXDiagnostic: Gamepad2,
+  diskCleanup: Eraser,
+  defragmentOptimize: Gauge,
+  systemRestore: ArchiveRestore,
+  memoryDiagnostic: MemoryStick,
+  windowsUpdate: RefreshCw,
+  windowsSecurity: ShieldCheck,
+  startupApps: Rocket,
+  installedApps: Package,
+  storageSettings: Database,
+  powerOptions: BatteryCharging,
+  soundSettings: Speaker,
+  displaySettings: Monitor,
+  firewall: BrickWall,
 };
 
 // The shell holds the same poll for the titlebar; acquire/release never stops it for others.
@@ -110,24 +150,27 @@ onUnmounted(() => store.releasePolling());
     </div>
 
     <h2 class="section">{{ t('monitor.quickActions') }}</h2>
-    <div class="actions">
-      <button
-        v-for="action in QUICK_ACTIONS"
-        :key="action.id"
-        type="button"
-        class="action"
-        @click="store.openAction(action.id)"
-      >
-        <component
-          :is="ACTION_ICONS[action.id]"
-          class="action-icon"
-          :size="16"
-          :stroke-width="1.9"
-          aria-hidden="true"
-        />
-        <span>{{ t(action.labelKey) }}</span>
-      </button>
-    </div>
+    <section v-for="group in QUICK_ACTION_GROUPS" :key="group.id" class="action-group">
+      <h3 class="group-title">{{ t(`monitor.actionGroups.${group.id}`) }}</h3>
+      <div class="actions">
+        <button
+          v-for="id in group.actions"
+          :key="id"
+          type="button"
+          class="action"
+          @click="store.openAction(id)"
+        >
+          <component
+            :is="ACTION_ICONS[id]"
+            class="action-icon"
+            :size="16"
+            :stroke-width="1.9"
+            aria-hidden="true"
+          />
+          <span>{{ t(`actions.${id}`) }}</span>
+        </button>
+      </div>
+    </section>
   </PtPageShell>
 </template>
 
@@ -227,5 +270,16 @@ onUnmounted(() => store.releasePolling());
   .actions {
     grid-template-columns: 1fr;
   }
+}
+.action-group + .action-group {
+  margin-top: 14px;
+}
+.group-title {
+  margin: 0 0 8px;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 </style>
