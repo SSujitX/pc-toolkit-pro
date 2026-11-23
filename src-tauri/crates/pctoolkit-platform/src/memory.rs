@@ -172,7 +172,6 @@ mod windows_impl {
         CreateFileW, FlushFileBuffers, FILE_FLAG_NO_BUFFERING, FILE_SHARE_READ, FILE_SHARE_WRITE,
         OPEN_EXISTING,
     };
-    use windows::Win32::System::IO::DeviceIoControl;
     use windows::Win32::System::ProcessStatus::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
     use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
@@ -190,8 +189,6 @@ mod windows_impl {
     /// NTSTATUS STATUS_PRIVILEGE_NOT_HELD
     const STATUS_PRIVILEGE_NOT_HELD: i32 = -1073741727; // 0xC0000061
 
-    const FSCTL_DISCARD_VOLUME_CACHE: u32 = 0x0009_0054;
-    const FSCTL_RESET_WRITE_ORDER: u32 = 0x0009_00F8;
 
     #[link(name = "ntdll")]
     extern "system" {
@@ -488,74 +485,61 @@ mod windows_impl {
         Ok(())
     }
 
+    /// Writes each fixed volume's modified (dirty) file cache to disk with `FlushFileBuffers` on the
+    /// volume handle. Windows requires a volume handle opened with `GENERIC_WRITE` (administrator)
+    /// for this; a read-only handle is rejected with access denied. Removable, network, and optical
+    /// drives are skipped. No undocumented FSCTL codes are sent.
     fn optimize_modified_file_cache() -> Result<(), &'static str> {
-        use std::ffi::OsStr;
-        use std::os::windows::ffi::OsStrExt;
+        use windows::Win32::Foundation::{ERROR_ACCESS_DENIED, GENERIC_WRITE};
+        use windows::Win32::Storage::FileSystem::GetDriveTypeW;
+        const DRIVE_FIXED: u32 = 3;
 
-        let mut any_ok = false;
+        let mut flushed = 0usize;
+        let mut denied = 0usize;
+        let mut tried = 0usize;
         for letter in b'A'..=b'Z' {
-            let root = format!("{}:\\", letter as char);
-            let meta = match std::fs::metadata(&root) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-            if !meta.is_dir() {
-                continue;
-            }
-            // Skip non-fixed roughly: only try if CreateFile volume succeeds.
-            let volume = format!("\\\\.\\{}:", letter as char);
-            let wide: Vec<u16> = OsStr::new(&volume)
-                .encode_wide()
+            let root: Vec<u16> = format!("{}:\\", letter as char)
+                .encode_utf16()
                 .chain(std::iter::once(0))
                 .collect();
+            if unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) } != DRIVE_FIXED {
+                continue;
+            }
+            let volume: Vec<u16> = format!("\\\\.\\{}:", letter as char)
+                .encode_utf16()
+                .chain(std::iter::once(0))
+                .collect();
+            tried += 1;
             unsafe {
-                let handle = CreateFileW(
-                    PCWSTR(wide.as_ptr()),
-                    GENERIC_READ.0,
+                let handle = match CreateFileW(
+                    PCWSTR(volume.as_ptr()),
+                    GENERIC_READ.0 | GENERIC_WRITE.0,
                     FILE_SHARE_READ | FILE_SHARE_WRITE,
                     None,
                     OPEN_EXISTING,
                     FILE_FLAG_NO_BUFFERING,
                     None,
-                );
-                let Ok(handle) = handle else {
-                    continue;
+                ) {
+                    Ok(h) if !h.is_invalid() => h,
+                    _ => {
+                        if GetLastError() == ERROR_ACCESS_DENIED {
+                            denied += 1;
+                        }
+                        continue;
+                    }
                 };
-                if handle.is_invalid() {
-                    continue;
-                }
-
-                let mut returned = 0u32;
-                let mut one = [0u8; 1];
-                let _ = DeviceIoControl(
-                    handle,
-                    FSCTL_RESET_WRITE_ORDER,
-                    Some(one.as_mut_ptr() as *const _ as *const _),
-                    1,
-                    None,
-                    0,
-                    Some(&mut returned),
-                    None,
-                );
-                let _ = DeviceIoControl(
-                    handle,
-                    FSCTL_DISCARD_VOLUME_CACHE,
-                    None,
-                    0,
-                    None,
-                    0,
-                    Some(&mut returned),
-                    None,
-                );
-                if FlushFileBuffers(handle).is_ok() {
-                    any_ok = true;
+                match FlushFileBuffers(handle) {
+                    Ok(()) => flushed += 1,
+                    Err(_) if GetLastError() == ERROR_ACCESS_DENIED => denied += 1,
+                    Err(_) => {}
                 }
                 let _ = CloseHandle(handle);
             }
         }
-
-        if any_ok {
+        if flushed > 0 {
             Ok(())
+        } else if tried > 0 && denied == tried {
+            Err("skippedNeedAdmin")
         } else {
             Err("failed")
         }
