@@ -4,11 +4,12 @@ import { defaultWindowIcon } from '@tauri-apps/api/app';
 import { Image } from '@tauri-apps/api/image';
 import { exit } from '@tauri-apps/plugin-process';
 import { ApplicationWindowService } from './application-window-service';
-import { MonitorService, PowerService } from './api-services';
+import { PowerService } from './api-services';
 import { useAppStore } from '@/stores/app-store';
 import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { useMonitorStore } from '@/stores/monitor-store';
 import { PAGE_IDS } from '@/lib/models/application-shell';
+import { displayedMemoryPercent } from '@/lib/models/memory-cleaner';
 import { formatBytes } from '@/lib/utils/format';
 import { i18n } from '@/i18n';
 
@@ -20,6 +21,12 @@ let tooltipTimer: number | null = null;
 let memoryStatusItem: MenuItem | null = null;
 let cleanMemoryItem: MenuItem | null = null;
 let cleaningFromTray = false;
+/** Last text pushed to the tray, so unchanged values skip the IPC round trip. */
+let lastTooltip = '';
+let lastMemoryStatus = '';
+
+/** Tray tooltip / status refresh cadence. The 1s polls belong to the visible window only. */
+const TRAY_REFRESH_MS = 5000;
 
 function t(key: string, params?: Record<string, unknown>): string {
   return (params ? i18n.global.t(key, params) : i18n.global.t(key)) as string;
@@ -27,6 +34,60 @@ function t(key: string, params?: Record<string, unknown>): string {
 
 function memoryStatusLabel(percent: number): string {
   return t('tray.memoryStatus', { percent: percent.toFixed(0) });
+}
+
+/** RAM % shared with the titlebar circle (Memory Cleaner physical load). */
+function currentMemoryPercent(): number {
+  return displayedMemoryPercent(
+    useMemoryCleanerStore().stats,
+    useMonitorStore().snapshot?.memoryPercent
+  );
+}
+
+function tooltipText(): string | null {
+  const snap = useMonitorStore().snapshot;
+  const memory = useMemoryCleanerStore().stats;
+  if (!snap && !memory) return null;
+  const ram = currentMemoryPercent().toFixed(0);
+  const cpu = (snap?.cpu ?? 0).toFixed(0);
+  return snap?.gpuAvailable
+    ? t('tray.tooltipGpu', { ram, cpu, gpu: (snap.gpuUtilization ?? 0).toFixed(0) })
+    : t('tray.tooltip', { ram, cpu });
+}
+
+async function setTooltipIfChanged(text: string) {
+  if (text === lastTooltip) return;
+  lastTooltip = text;
+  await tray?.setTooltip(text);
+}
+
+async function setMemoryStatusIfChanged(text: string) {
+  if (text === lastMemoryStatus) return;
+  lastMemoryStatus = text;
+  await memoryStatusItem?.setText(text);
+}
+
+/**
+ * While the window is visible the shell's 1s polls keep both stores fresh; while it is hidden
+ * in the tray those polls are paused, so this slow tick fetches its own samples.
+ */
+async function refreshTray(fetch: boolean) {
+  if (cleaningFromTray) return;
+  if (fetch) {
+    await Promise.all([
+      useMemoryCleanerStore().refreshStats(),
+      useMonitorStore().refreshQuiet(),
+    ]);
+  }
+  if (cleaningFromTray) return;
+  const text = tooltipText();
+  if (!text) return;
+  try {
+    await setTooltipIfChanged(text);
+    await setMemoryStatusIfChanged(memoryStatusLabel(currentMemoryPercent()));
+  } catch {
+    // ignore tray tooltip failures
+  }
 }
 
 async function openPage(pageId: (typeof PAGE_IDS)[keyof typeof PAGE_IDS]) {
@@ -52,7 +113,7 @@ async function runCleanMemoryFromTray() {
   try {
     await cleanMemoryItem?.setEnabled(false);
     await cleanMemoryItem?.setText(t('tray.cleaningMemory'));
-    await tray?.setTooltip(t('tray.cleaningTooltip'));
+    await setTooltipIfChanged(t('tray.cleaningTooltip'));
 
     await useMemoryCleanerStore().run('tray');
     const result = useMemoryCleanerStore().result;
@@ -60,14 +121,13 @@ async function runCleanMemoryFromTray() {
     const freedLabel = formatBytes(freed);
 
     await cleanMemoryItem?.setText(t('tray.cleanedMemory', { bytes: freedLabel }));
-    await tray?.setTooltip(t('tray.cleanedTooltip', { bytes: freedLabel }));
+    await setTooltipIfChanged(t('tray.cleanedTooltip', { bytes: freedLabel }));
 
     try {
-      const snap = await MonitorService.snapshot();
-      useMonitorStore().$patch({ snapshot: snap });
-      await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
+      // run() already refreshed both stores; mirror the new RAM % in the menu.
+      await setMemoryStatusIfChanged(memoryStatusLabel(currentMemoryPercent()));
     } catch {
-      // keep previous status if refresh fails
+      // keep previous status if the tray update fails
     }
 
     window.setTimeout(() => {
@@ -231,7 +291,7 @@ export async function setupTray(): Promise<void> {
       });
     } else {
       await tray.setMenu(menu);
-      await tray.setTooltip(t('app.name'));
+      await setTooltipIfChanged(t('app.name'));
       await tray.setShowMenuOnLeftClick(false);
       await tray.setVisible(true);
       // Re-assert icon in case the host started without one.
@@ -242,33 +302,11 @@ export async function setupTray(): Promise<void> {
       }
     }
 
-    // Reuse monitor store’s 1s live snapshot (same GlobalMemoryStatusEx % as Memory page).
-    tooltipTimer = window.setInterval(async () => {
-      if (cleaningFromTray) return;
-      const snap = useMonitorStore().snapshot;
-      if (!snap) return;
-      try {
-        const gpu = snap.gpuAvailable
-          ? ` · GPU ${snap.gpuUtilization?.toFixed(0) ?? 0}%`
-          : '';
-        await tray?.setTooltip(
-          `RAM ${snap.memoryPercent.toFixed(0)}% · CPU ${snap.cpu.toFixed(0)}%${gpu}`
-        );
-        await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
-      } catch {
-        // ignore tray tooltip failures
-      }
-    }, 1000);
-
-    void MonitorService.snapshot()
-      .then(async (snap) => {
-        useMonitorStore().$patch({ snapshot: snap });
-        await memoryStatusItem?.setText(memoryStatusLabel(snap.memoryPercent));
-        await tray?.setTooltip(
-          `RAM ${snap.memoryPercent.toFixed(0)}% · CPU ${snap.cpu.toFixed(0)}%`
-        );
-      })
-      .catch(() => undefined);
+    // Slow tick; fetches its own samples only while the window's polls are paused (hidden).
+    tooltipTimer = window.setInterval(() => {
+      void refreshTray(useMonitorStore().paused);
+    }, TRAY_REFRESH_MS);
+    void refreshTray(true);
   } catch (error) {
     // Surface tray failures — silent catch made the icon disappear with no clue.
     useAppStore().reportError(error);
@@ -280,6 +318,8 @@ export function disposeTray() {
   tooltipTimer = null;
   memoryStatusItem = null;
   cleanMemoryItem = null;
+  lastTooltip = '';
+  lastMemoryStatus = '';
   void tray?.close();
   tray = null;
 }
