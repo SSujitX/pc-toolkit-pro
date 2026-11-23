@@ -12,6 +12,8 @@ export const useMonitorStore = defineStore('monitor', {
     /** Monotonic request id — drop out-of-order replies from slow polls. */
     pollSeq: 0,
     appliedSeq: 0,
+    holders: 0,
+    paused: false,
   }),
   actions: {
     async refresh() {
@@ -37,17 +39,35 @@ export const useMonitorStore = defineStore('monitor', {
         // keep last snapshot
       }
     },
-    startPolling() {
-      void this.refresh();
-      if (this.timer != null) return;
-      // ~1s like WinMemoryCleaner tray — titlebar circle stays live.
-      this.timer = window.setInterval(() => {
-        void this.refreshQuiet();
-      }, 1000);
+    /**
+     * Reference-counted 1s snapshot poll (titlebar uptime/disk + Monitor page). Every acquire must
+     * be paired with one release; the poll runs while any holder exists and the window is visible.
+     */
+    acquirePolling() {
+      this.holders += 1;
+      if (this.holders === 1 && !this.paused) void this.refresh();
+      this.syncTimer();
     },
-    stopPolling() {
-      if (this.timer != null) {
-        clearInterval(this.timer);
+    releasePolling() {
+      this.holders = Math.max(0, this.holders - 1);
+      this.syncTimer();
+    },
+    /** Pause while the window is hidden in the tray; resumes with an immediate refresh. */
+    setPaused(paused: boolean) {
+      if (this.paused === paused) return;
+      this.paused = paused;
+      if (!paused && this.holders > 0) void this.refreshQuiet();
+      this.syncTimer();
+    },
+    syncTimer() {
+      const wanted = this.holders > 0 && !this.paused;
+      if (wanted && this.timer == null) {
+        // ~1s like WinMemoryCleaner tray — titlebar circle stays live.
+        this.timer = window.setInterval(() => {
+          void this.refreshQuiet();
+        }, 1000);
+      } else if (!wanted && this.timer != null) {
+        window.clearInterval(this.timer);
         this.timer = null;
       }
     },
