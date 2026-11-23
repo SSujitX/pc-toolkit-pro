@@ -1,10 +1,10 @@
 //! Care category: Startup. Reports enabled third-party startup entries (Run values, Startup
-//! folder files, logon / boot tasks) with their measured boot impact when Windows recorded one,
+//! folder files, logon / boot tasks, packaged app startup tasks) with their measured boot impact when Windows recorded one,
 //! and entries whose program no longer exists.
 //!
 //! Honesty rules: entries are never auto-fixed (risk Review, unselected) because whether a
 //! program should start with Windows is the user's choice; "disable" uses the same reversible
-//! `StartupApproved` / task switch as the Startup Manager. Services are listed only in the
+//! `StartupApproved` / task / packaged-task `State` switch as the Startup Manager. Services are listed only in the
 //! Startup Manager, not here — suggesting service changes in a one-click scan is too risky.
 //! Broken entries (target missing) are Safe and removed with a backup.
 
@@ -44,6 +44,7 @@ fn source_key(source: StartupSource) -> &'static str {
         StartupSource::StartupFolder => "startupFolder",
         StartupSource::ScheduledTask => "scheduledTask",
         StartupSource::Service => "service",
+        StartupSource::PackagedApp => "packagedApp",
     }
 }
 
@@ -79,7 +80,7 @@ pub(crate) fn care_items(items: &[StartupItem], is_admin: bool) -> Vec<CareItem>
         }
         let third_party_entry = matches!(
             item.source,
-            StartupSource::Run | StartupSource::StartupFolder | StartupSource::ScheduledTask
+            StartupSource::Run | StartupSource::StartupFolder | StartupSource::ScheduledTask | StartupSource::PackagedApp
         );
         if !third_party_entry || item.is_microsoft || item.broken || item.state != StartupState::Enabled || !item.can_toggle {
             continue;
@@ -163,7 +164,8 @@ impl CareCategory for StartupCategory {
                 status,
                 reason,
                 freed_bytes: 0,
-                // Disabling writes a reversible StartupApproved / task switch; deletes keep a backup.
+                // Disabling writes a reversible StartupApproved / task / packaged-task switch;
+                // deletes keep a backup.
                 undoable: status == CareFixStatus::Fixed,
             });
         }
@@ -222,6 +224,24 @@ mod tests {
         off.state = StartupState::Disabled;
         let svc = item("svc", StartupSource::Service);
         assert!(care_items(&[ms, off, svc], false).is_empty());
+    }
+
+    #[test]
+    fn enabled_third_party_packaged_tasks_are_review_items() {
+        let mut packaged = item("pkg:Vendor.App_abc:Tray", StartupSource::PackagedApp);
+        packaged.can_delay = false;
+        let mut locked = packaged.clone();
+        locked.id = "pkg:Vendor.App_abc:Locked".into();
+        locked.can_toggle = false;
+        let mut microsoft = packaged.clone();
+        microsoft.id = "pkg:Microsoft.YourPhone_x:Start".into();
+        microsoft.is_microsoft = true;
+        let found = care_items(&[packaged, locked, microsoft], false);
+        assert_eq!(found.len(), 1, "policy-locked and Microsoft packaged tasks are not reported");
+        assert_eq!(found[0].id, "disable:pkg:Vendor.App_abc:Tray");
+        assert_eq!(found[0].risk, CareRisk::Review);
+        assert!(!found[0].selected && !found[0].needs_admin);
+        assert_eq!(found[0].params.get("source").map(String::as_str), Some("packagedApp"));
     }
 
     #[test]
