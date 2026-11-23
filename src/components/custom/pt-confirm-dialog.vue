@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { onBeforeUnmount, ref, useId, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { trapDialogFocus } from '@/lib/services/dialog-focus-service';
+
 const open = defineModel<boolean>('open', { default: false });
 defineProps<{
   title: string;
@@ -7,7 +11,25 @@ defineProps<{
   cancelText?: string;
   destructive?: boolean;
 }>();
-const emit = defineEmits<{ confirm: []; cancel: [] }>();
+/**
+ * `cancel` = the explicit cancel button (some callers treat it as an action, e.g. "continue
+ * without admin"); `dismiss` = overlay click / Escape, which never triggers an action.
+ */
+const emit = defineEmits<{ confirm: []; cancel: []; dismiss: [] }>();
+const { t } = useI18n();
+const titleId = useId();
+const panel = ref<HTMLElement | null>(null);
+let releaseFocus: (() => void) | null = null;
+
+watch(
+  panel,
+  (el) => {
+    releaseFocus?.();
+    releaseFocus = el ? trapDialogFocus(el, onDismiss) : null;
+  },
+  { flush: 'post' }
+);
+onBeforeUnmount(() => releaseFocus?.());
 
 function onConfirm() {
   open.value = false;
@@ -17,25 +39,29 @@ function onCancel() {
   open.value = false;
   emit('cancel');
 }
+function onDismiss() {
+  open.value = false;
+  emit('dismiss');
+}
 </script>
 
 <template>
-  <div v-if="open" class="pt-dialog-root" role="dialog" aria-modal="true">
-    <div class="pt-dialog-overlay" @click="onCancel" />
-    <div class="pt-dialog-panel">
+  <div v-if="open" class="pt-dialog-root" role="dialog" aria-modal="true" :aria-labelledby="titleId">
+    <div class="pt-dialog-overlay" @click="onDismiss" />
+    <div ref="panel" class="pt-dialog-panel">
       <header class="pt-dialog-header">
-        <h2>{{ title }}</h2>
+        <h2 :id="titleId">{{ title }}</h2>
         <p>{{ message }}</p>
       </header>
       <footer class="pt-dialog-footer">
-        <button type="button" class="pt-btn" @click="onCancel">{{ cancelText ?? 'Cancel' }}</button>
+        <button type="button" class="pt-btn" @click="onCancel">{{ cancelText ?? t('common.cancel') }}</button>
         <button
           type="button"
           class="pt-btn pt-btn-primary"
           :class="{ 'pt-btn-danger': destructive }"
           @click="onConfirm"
         >
-          {{ confirmText ?? 'Confirm' }}
+          {{ confirmText ?? t('common.confirm') }}
         </button>
       </footer>
     </div>
