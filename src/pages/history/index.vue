@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Brain,
   CheckCircle2,
   ChevronRight,
+  HeartPulse,
   History,
   Layers,
+  PackageX,
   Paintbrush,
   Power,
   Trash2,
@@ -18,6 +20,7 @@ import PtConfirmDialog from '@/components/custom/pt-confirm-dialog.vue';
 import PtResultWorkspace from '@/components/custom/pt-result-workspace.vue';
 import type { HistoryRecord } from '@/lib/models/history';
 import { formatBytes } from '@/lib/utils/format';
+import { trapDialogFocus } from '@/lib/services/dialog-focus-service';
 import { useHistoryStore } from '@/stores/history-store';
 
 const { t, locale } = useI18n();
@@ -26,6 +29,18 @@ const clearOpen = ref(false);
 const selected = ref<HistoryRecord | null>(null);
 
 const hasRecords = computed(() => store.records.length > 0);
+const detailPanel = ref<HTMLElement | null>(null);
+let releaseFocus: (() => void) | null = null;
+
+watch(
+  detailPanel,
+  (el) => {
+    releaseFocus?.();
+    releaseFocus = el ? trapDialogFocus(el, closeDetails) : null;
+  },
+  { flush: 'post' }
+);
+onBeforeUnmount(() => releaseFocus?.());
 
 onMounted(() => {
   void store.load();
@@ -36,6 +51,8 @@ function categoryIcon(category: string) {
   if (category === 'memoryCleaner') return Brain;
   if (category === 'power') return Power;
   if (category === 'cleaner') return Paintbrush;
+  if (category === 'uninstaller') return PackageX;
+  if (category === 'care') return HeartPulse;
   return History;
 }
 
@@ -155,12 +172,12 @@ async function confirmClear() {
       </div>
     </PtResultWorkspace>
 
-    <div v-if="selected" class="detail-root" role="dialog" aria-modal="true">
+    <div v-if="selected" class="detail-root" role="dialog" aria-modal="true" aria-labelledby="pt-history-detail-title">
       <div class="detail-overlay" @click="closeDetails" />
-      <div class="detail-panel">
+      <div ref="detailPanel" class="detail-panel">
         <header class="detail-header">
           <div>
-            <h2>{{ t('history.detailTitle') }}</h2>
+            <h2 id="pt-history-detail-title">{{ t('history.detailTitle') }}</h2>
             <p>{{ t('history.detailBody') }}</p>
           </div>
           <button type="button" class="icon-close" :aria-label="t('common.cancel')" @click="closeDetails">
@@ -208,7 +225,7 @@ async function confirmClear() {
         </section>
 
         <footer class="detail-footer">
-          <button type="button" class="pt-btn" @click="closeDetails">
+          <button type="button" class="pt-btn" data-autofocus @click="closeDetails">
             {{ t('common.close') }}
           </button>
         </footer>
