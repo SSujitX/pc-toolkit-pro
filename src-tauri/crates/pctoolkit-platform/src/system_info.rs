@@ -658,7 +658,7 @@ if ($pa -and $pa.MaxCapacity) { $maxMemGb = [math]::Round($pa.MaxCapacity / 1MB,
 } | ConvertTo-Json -Compress
 "#;
 
-    let mut cmd = Command::new("powershell");
+    let mut cmd = Command::new(crate::registry::powershell_exe());
     cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", script]);
     crate::process::hide_console(&mut cmd);
     let output = cmd.output().ok()?;
@@ -712,7 +712,7 @@ fn non_empty(s: &str) -> Option<String> {
 }
 
 fn query_ps(expression: &str) -> Option<String> {
-    let mut cmd = Command::new("powershell");
+    let mut cmd = Command::new(crate::registry::powershell_exe());
     cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", expression]);
     crate::process::hide_console(&mut cmd);
     let output = cmd.output().ok()?;
