@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { Clock3, HardDrive, Minus, Square, X } from '@lucide/vue';
 import { ApplicationWindowService } from '@/lib/services/application-window-service';
 import { formatBytes, formatUptime } from '@/lib/utils/format';
+import { displayedMemoryPercent } from '@/lib/models/memory-cleaner';
 import { useMemoryCleanerStore } from '@/stores/memory-cleaner-store';
 import { useMonitorStore } from '@/stores/monitor-store';
 
@@ -18,16 +19,10 @@ const diskFree = computed(() =>
     : 0
 );
 const diskPercent = computed(() => monitor.snapshot?.diskPercent ?? 0);
-const memoryPercent = computed(() => {
-  // Prefer Memory Cleaner physical load (same GetPerformanceInfo source as the
-  // page / WMC / IObit). Fall back to monitor snapshot when stats are not ready.
-  const fromMemory = memory.stats?.physicalLoadPercent;
-  const value =
-    fromMemory != null && Number.isFinite(fromMemory)
-      ? fromMemory
-      : (monitor.snapshot?.memoryPercent ?? 0);
-  return Math.min(100, Math.max(0, value));
-});
+// Same GetPerformanceInfo physical load as the Memory page / tray / WMC / IObit.
+const memoryPercent = computed(() =>
+  displayedMemoryPercent(memory.stats, monitor.snapshot?.memoryPercent)
+);
 const memoryPercentLabel = computed(() => Math.round(memoryPercent.value));
 const optimizing = computed(() => memory.loading);
 
@@ -51,11 +46,11 @@ async function optimizeFromGauge() {
 <template>
   <div class="titlebar" data-tauri-drag-region>
     <div class="chrome" data-tauri-drag-region="false">
-      <div class="status-chip" title="System uptime">
-        <Clock3 :size="14" :stroke-width="1.75" />
+      <div class="status-chip" :title="t('titlebar.uptimeHint')">
+        <Clock3 :size="14" :stroke-width="1.75" aria-hidden="true" />
         <div class="status-body">
           <div class="status-text">
-            <span class="status-title">Uptime</span>
+            <span class="status-title">{{ t('titlebar.uptime') }}</span>
             <span class="status-value">{{ uptimeLabel }}</span>
           </div>
           <div class="meter meter-hidden" aria-hidden="true">
@@ -64,12 +59,12 @@ async function optimizeFromGauge() {
         </div>
       </div>
 
-      <div class="status-chip disk" title="Local Disk (C:)">
-        <HardDrive :size="14" :stroke-width="1.75" />
+      <div class="status-chip disk" :title="t('titlebar.systemDisk')">
+        <HardDrive :size="14" :stroke-width="1.75" aria-hidden="true" />
         <div class="status-body">
           <div class="status-text">
-            <span class="status-title">Local Disk (C:)</span>
-            <span class="status-value">{{ formatBytes(diskFree) }} available</span>
+            <span class="status-title">{{ t('titlebar.systemDisk') }}</span>
+            <span class="status-value">{{ t('titlebar.diskAvailable', { size: formatBytes(diskFree) }) }}</span>
           </div>
           <div class="meter" aria-hidden="true">
             <span :style="{ width: `${Math.min(100, Math.max(0, diskPercent))}%` }" />
@@ -99,13 +94,13 @@ async function optimizeFromGauge() {
       </button>
 
       <div class="controls">
-        <button type="button" class="ctrl" aria-label="Minimize" @click.stop="minimize">
+        <button type="button" class="ctrl" :aria-label="t('titlebar.minimize')" @click.stop="minimize">
           <Minus :size="16" :stroke-width="2" />
         </button>
-        <button type="button" class="ctrl" aria-label="Maximize" @click.stop="toggleMax">
+        <button type="button" class="ctrl" :aria-label="t('titlebar.maximize')" @click.stop="toggleMax">
           <Square :size="14" :stroke-width="2" />
         </button>
-        <button type="button" class="ctrl close" aria-label="Close" @click.stop="close">
+        <button type="button" class="ctrl close" :aria-label="t('titlebar.close')" @click.stop="close">
           <X :size="16" :stroke-width="2" />
         </button>
       </div>
@@ -144,7 +139,7 @@ async function optimizeFromGauge() {
   padding: 6px 12px;
   border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
   border-radius: 12px;
-  background: color-mix(in oklab, var(--card) 88%, white);
+  background: var(--card);
   color: var(--muted-foreground);
   box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent);
 }
@@ -196,10 +191,18 @@ async function optimizeFromGauge() {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: color-mix(in oklab, var(--primary) 82%, #b45309);
+  background: color-mix(in oklab, var(--primary) 82%, var(--warning));
+}
+/* Registered so the ring animates smoothly to the new percentage after an optimize. */
+@property --mem {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
 }
 .memory-circle {
   --mem: 0;
+  position: relative;
+  transition: --mem 900ms cubic-bezier(0.22, 1, 0.36, 1);
   box-sizing: border-box;
   display: grid;
   flex: none;
@@ -217,12 +220,12 @@ async function optimizeFromGauge() {
   background:
     radial-gradient(
       circle at center,
-      color-mix(in oklab, var(--card) 92%, white) 0 62%,
+      var(--card) 0 62%,
       transparent 63%
     ),
     conic-gradient(
       from -90deg,
-      color-mix(in oklab, var(--primary) 88%, #1e67b1) calc(var(--mem) * 1%),
+      var(--primary) calc(var(--mem) * 1%),
       color-mix(in oklab, var(--muted) 85%, transparent) 0
     );
   box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent);
@@ -232,10 +235,45 @@ async function optimizeFromGauge() {
 .memory-circle:hover:not(:disabled) {
   border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
 }
-.memory-circle:disabled,
 .memory-circle.busy {
-  cursor: wait;
-  opacity: 0.85;
+  cursor: progress;
+}
+/* Rotating arc while optimizing (circular, continuous — the shared busy-spinner style). */
+.memory-circle.busy::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--primary) 0deg,
+    color-mix(in oklab, var(--primary) 45%, transparent) 70deg,
+    transparent 120deg
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  animation: mem-spin 0.8s linear infinite;
+  pointer-events: none;
+}
+@keyframes mem-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memory-circle {
+    transition: none;
+  }
+  /* Busy stays visible as a softly pulsing ring instead of a spinning arc. */
+  .memory-circle.busy::after {
+    background: color-mix(in oklab, var(--primary) 70%, transparent);
+    animation: mem-pulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes mem-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 .memory-circle-value {
   position: relative;
@@ -270,6 +308,6 @@ async function optimizeFromGauge() {
 }
 .ctrl.close:hover {
   background: var(--destructive);
-  color: white;
+  color: var(--destructive-foreground, white);
 }
 </style>
