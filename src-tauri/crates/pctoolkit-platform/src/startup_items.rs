@@ -1,12 +1,13 @@
 //! Startup entries as Windows sees them: Run / RunOnce values, Startup folder files, scheduled
-//! tasks with logon / boot triggers, and auto-start Win32 services, plus the switches Windows
-//! itself uses to turn them off.
+//! tasks with logon / boot triggers, auto-start Win32 services, and packaged (MSIX / Store) app
+//! startup tasks, plus the switches Windows itself uses to turn them off.
 //!
 //! Enabled state matches Task Manager: Run values and Startup folder files are disabled through
 //! `Explorer\StartupApproved\{Run,Run32,StartupFolder}` (the entry itself stays, so the change is
 //! fully reversible). Tasks use `IRegisteredTask::put_Enabled`; services change their start type
-//! through the Service Control Manager. Machine-wide changes need an elevated process and report
-//! `PermissionDenied` instead of elevating. No product policy lives here (what to show, what to
+//! through the Service Control Manager. Packaged startup tasks use the per-user `State` DWORD that
+//! Settings → Startup apps writes under `SystemAppData\<family>\<taskId>`. Machine-wide changes
+//! need an elevated process and report `PermissionDenied` instead of elevating. No product policy lives here (what to show, what to
 //! recommend, undo bookkeeping) — that belongs to `pctoolkit_core::startup`.
 
 use std::path::{Path, PathBuf};
@@ -31,6 +32,8 @@ pub enum StartupSource {
     StartupFolder,
     ScheduledTask,
     Service,
+    /// `windows.startupTask` extension of a packaged (MSIX / Store) app.
+    PackagedApp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -101,6 +104,11 @@ pub enum StartupLocation {
     Service {
         name: String,
     },
+    /// Packaged app startup task: `SystemAppData\<family>\<task_id>` of the current user.
+    Package {
+        family: String,
+        task_id: String,
+    },
 }
 
 /// One startup entry as read from the system.
@@ -124,6 +132,8 @@ pub struct StartupEntryFact {
     pub microsoft_task: bool,
     /// Task runs as SYSTEM / a service account / with highest privileges: changing it needs admin.
     pub task_privileged: bool,
+    /// Package facts of a `PackagedApp` entry; `None` for every other source.
+    pub package: Option<PackagedTaskFacts>,
 }
 
 /// Version-resource facts of an executable.
@@ -558,6 +568,7 @@ pub fn list_run_entries() -> Vec<StartupEntryFact> {
                     service_start: None,
                     microsoft_task: false,
                     task_privileged: false,
+                    package: None,
                 });
             }
         }
@@ -639,6 +650,7 @@ pub fn list_startup_folder_entries() -> Vec<StartupEntryFact> {
                 service_start: None,
                 microsoft_task: false,
                 task_privileged: false,
+                package: None,
             });
         }
     }
@@ -689,6 +701,7 @@ pub fn list_service_entries() -> Vec<StartupEntryFact> {
             service_start: Some(start_kind),
             microsoft_task: false,
             task_privileged: true,
+            package: None,
         });
     }
     out
@@ -753,6 +766,7 @@ pub fn list_task_entries() -> Vec<StartupEntryFact> {
                     disabled_at_ms: None,
                     service_start: None,
                     task_privileged: facts.privileged,
+                    package: None,
                 })
             })
             .collect()
@@ -891,6 +905,403 @@ pub fn set_service_start(name: &str, start: ServiceStartKind) -> PlatformResult<
         let _ = (name, start);
         Err(PlatformError::Unsupported)
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Packaged (MSIX / Store) app startup tasks
+// ---------------------------------------------------------------------------------------------
+
+/// Per-user startup task state root (what Settings → Startup apps reads and writes).
+const PACKAGED_STATE_SUBKEY: &str =
+    "Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\SystemAppData";
+const PACKAGED_STATE_VALUE: &str = "State";
+
+/// `Windows.ApplicationModel.StartupTaskState`, as stored in the `State` DWORD.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PackagedTaskState {
+    /// 0: off (manifest default or turned off by the app itself).
+    Disabled,
+    /// 1: turned off by the user; the app cannot turn itself back on.
+    DisabledByUser,
+    /// 2
+    Enabled,
+    /// 3: turned off by group policy; not changeable.
+    DisabledByPolicy,
+    /// 4: forced on by group policy; not changeable.
+    EnabledByPolicy,
+}
+
+impl PackagedTaskState {
+    pub fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled | Self::EnabledByPolicy)
+    }
+
+    /// Policy-controlled states cannot be changed by the user (Settings greys them out too).
+    pub fn is_policy_locked(self) -> bool {
+        matches!(self, Self::DisabledByPolicy | Self::EnabledByPolicy)
+    }
+
+    fn from_raw(raw: u32) -> Option<Self> {
+        match raw {
+            0 => Some(Self::Disabled),
+            1 => Some(Self::DisabledByUser),
+            2 => Some(Self::Enabled),
+            3 => Some(Self::DisabledByPolicy),
+            4 => Some(Self::EnabledByPolicy),
+            _ => None,
+        }
+    }
+}
+
+/// Effective state from the stored `State` value; absent (or an unknown value) means the
+/// manifest default (`Enabled` attribute of `StartupTask`).
+pub fn packaged_task_state(raw: Option<u32>, manifest_enabled: bool) -> PackagedTaskState {
+    raw.and_then(PackagedTaskState::from_raw).unwrap_or(if manifest_enabled {
+        PackagedTaskState::Enabled
+    } else {
+        PackagedTaskState::Disabled
+    })
+}
+
+/// Package facts of a packaged startup task entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackagedTaskFacts {
+    pub family_name: String,
+    pub full_name: String,
+    pub task_id: String,
+    /// The task's own resolved `DisplayName` (often differs from the package name).
+    pub task_name: Option<String>,
+    /// Package publisher display name (e.g. "Microsoft Corporation").
+    pub publisher: String,
+    /// Signed by Windows itself (inbox app).
+    pub is_system: bool,
+    /// Best-scale package logo on disk.
+    pub logo_path: Option<PathBuf>,
+    pub state: PackagedTaskState,
+}
+
+/// One `windows.startupTask` declared in an `AppxManifest.xml`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestStartupTask {
+    pub task_id: String,
+    /// Raw `DisplayName` (may be an `ms-resource:` reference).
+    pub display_name: String,
+    pub enabled_by_default: bool,
+    /// Package-relative executable: the extension's `Executable`, else the owning `Application`'s.
+    pub executable: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ManifestStartupFacts {
+    /// `Identity/@Name` (the package name used by `ms-resource://<name>/...`).
+    pub identity_name: Option<String>,
+    pub tasks: Vec<ManifestStartupTask>,
+}
+
+/// One start / end tag of a tolerant XML scan. Names are local (namespace prefix removed).
+struct XmlTag<'a> {
+    name: &'a str,
+    closing: bool,
+    self_closing: bool,
+    attrs: &'a str,
+}
+
+fn local_name(name: &str) -> &str {
+    name.rsplit(':').next().unwrap_or(name)
+}
+
+/// Start / end tags in document order. Comments, processing instructions, CDATA and
+/// declarations are skipped; `>` inside quoted attribute values does not end a tag.
+fn xml_tags(xml: &str) -> Vec<XmlTag<'_>> {
+    let mut out = Vec::new();
+    let mut rest = xml;
+    while let Some(lt) = rest.find('<') {
+        rest = &rest[lt..];
+        fn skip_to(text: &str, end: &str) -> Option<usize> {
+            text.find(end).map(|i| i + end.len())
+        }
+        let skipped = if rest.starts_with("<!--") {
+            Some(skip_to(rest, "-->"))
+        } else if rest.starts_with("<![CDATA[") {
+            Some(skip_to(rest, "]]>"))
+        } else if rest.starts_with("<?") {
+            Some(skip_to(rest, "?>"))
+        } else if rest.starts_with("<!") {
+            Some(skip_to(rest, ">"))
+        } else {
+            None
+        };
+        if let Some(next) = skipped {
+            match next {
+                Some(i) => {
+                    rest = &rest[i..];
+                    continue;
+                }
+                None => break,
+            }
+        }
+        let mut quote: Option<char> = None;
+        let mut end = None;
+        for (i, c) in rest.char_indices().skip(1) {
+            match quote {
+                Some(q) if c == q => quote = None,
+                Some(_) => {}
+                None if c == '"' || c == '\'' => quote = Some(c),
+                None if c == '>' => {
+                    end = Some(i);
+                    break;
+                }
+                None => {}
+            }
+        }
+        let Some(end) = end else { break };
+        let inner = &rest[1..end];
+        rest = &rest[end + 1..];
+        let (closing, inner) = match inner.strip_prefix('/') {
+            Some(after) => (true, after),
+            None => (false, inner),
+        };
+        let self_closing = inner.trim_end().ends_with('/');
+        let inner = inner.trim_end().trim_end_matches('/');
+        let name_end = inner.find(|c: char| c.is_whitespace()).unwrap_or(inner.len());
+        let name = &inner[..name_end];
+        if name.is_empty() {
+            continue;
+        }
+        out.push(XmlTag { name: local_name(name), closing, self_closing, attrs: &inner[name_end..] });
+    }
+    out
+}
+
+/// Value of the attribute whose local name is `wanted` (unescaped).
+fn xml_attr(attrs: &str, wanted: &str) -> Option<String> {
+    let mut rest = attrs;
+    loop {
+        rest = rest.trim_start();
+        let eq = rest.find('=')?;
+        let name = rest[..eq].trim();
+        let after = rest[eq + 1..].trim_start();
+        let quote = after.chars().next().filter(|c| *c == '"' || *c == '\'')?;
+        let value_start = &after[1..];
+        let close = value_start.find(quote)?;
+        if local_name(name) == wanted {
+            return Some(xml_unescape(&value_start[..close]));
+        }
+        rest = &value_start[close + 1..];
+    }
+}
+
+/// Startup tasks declared in a package manifest. Namespace prefixes vary (`uap5:`, `desktop:`,
+/// `uap10:` …), so elements and attributes are matched by local name.
+pub fn parse_manifest_startup_tasks(xml: &str) -> ManifestStartupFacts {
+    let mut facts = ManifestStartupFacts::default();
+    let mut app_executable: Option<String> = None;
+    let mut in_startup_extension = false;
+    let mut extension_executable: Option<String> = None;
+    for tag in xml_tags(xml) {
+        match (tag.name, tag.closing) {
+            ("Identity", false) if facts.identity_name.is_none() => {
+                facts.identity_name = xml_attr(tag.attrs, "Name").filter(|n| !n.is_empty());
+            }
+            ("Application", false) => {
+                app_executable = xml_attr(tag.attrs, "Executable").filter(|e| !e.is_empty());
+                if tag.self_closing {
+                    app_executable = None;
+                }
+            }
+            ("Application", true) => app_executable = None,
+            ("Extension", false) => {
+                let startup = xml_attr(tag.attrs, "Category").is_some_and(|c| c.eq_ignore_ascii_case("windows.startupTask"));
+                in_startup_extension = startup && !tag.self_closing;
+                extension_executable = if in_startup_extension {
+                    xml_attr(tag.attrs, "Executable").filter(|e| !e.is_empty())
+                } else {
+                    None
+                };
+            }
+            ("Extension", true) => {
+                in_startup_extension = false;
+                extension_executable = None;
+            }
+            ("StartupTask", false) if in_startup_extension => {
+                let Some(task_id) = xml_attr(tag.attrs, "TaskId").filter(|t| !t.trim().is_empty()) else {
+                    continue;
+                };
+                let enabled_by_default = xml_attr(tag.attrs, "Enabled")
+                    .is_some_and(|v| v.trim().eq_ignore_ascii_case("true") || v.trim() == "1");
+                facts.tasks.push(ManifestStartupTask {
+                    task_id: task_id.trim().to_string(),
+                    display_name: xml_attr(tag.attrs, "DisplayName").unwrap_or_default(),
+                    enabled_by_default,
+                    executable: extension_executable.clone().or_else(|| app_executable.clone()),
+                });
+            }
+            _ => {}
+        }
+    }
+    facts
+}
+
+/// `SHLoadIndirectString` sources to try for an `ms-resource:` display name, most likely first.
+/// Empty when `value` is not an `ms-resource:` reference.
+pub fn ms_resource_candidates(full_name: &str, package_name: &str, value: &str) -> Vec<String> {
+    let value = value.trim();
+    let Some(rest) = value.get(..12).filter(|p| p.eq_ignore_ascii_case("ms-resource:")).map(|_| &value[12..]) else {
+        return Vec::new();
+    };
+    let uris: Vec<String> = if let Some(path) = rest.strip_prefix("///") {
+        // `ms-resource:///Resources/Key`: absolute path inside this package.
+        vec![format!("ms-resource://{package_name}/{path}")]
+    } else if rest.starts_with("//") {
+        // Already names a package (`ms-resource://Name/Resources/Key`).
+        vec![format!("ms-resource:{rest}")]
+    } else if let Some(path) = rest.strip_prefix('/') {
+        vec![format!("ms-resource://{package_name}/{path}")]
+    } else if rest.contains('/') {
+        vec![format!("ms-resource://{package_name}/{rest}"), format!("ms-resource://{package_name}/Resources/{rest}")]
+    } else {
+        vec![format!("ms-resource://{package_name}/Resources/{rest}"), format!("ms-resource://{package_name}/{rest}")]
+    };
+    uris.into_iter()
+        .filter(|u| !u.ends_with('/'))
+        .map(|uri| format!("@{{{full_name}?{uri}}}"))
+        .collect()
+}
+
+/// The task's own `DisplayName`, resolved through the package resources when it is an
+/// `ms-resource:` reference. `None` when empty or unresolvable.
+fn packaged_task_display_name(full_name: &str, package_name: &str, raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    let candidates = ms_resource_candidates(full_name, package_name, raw);
+    if candidates.is_empty() {
+        return (!raw.is_empty()).then(|| raw.to_string());
+    }
+    candidates.into_iter().find_map(|candidate| {
+        let resolved = resolve_indirect_string(&candidate);
+        let resolved = resolved.trim();
+        (!resolved.starts_with("@{") && !resolved.is_empty()).then(|| resolved.to_string())
+    })
+}
+
+/// Row label like Settings → Startup apps: the package display name; the task name is added
+/// only to tell several tasks of one package apart, and used alone when the package has none.
+fn packaged_entry_label(package_display: &str, package_name: &str, task_name: Option<&str>, tasks_in_package: usize) -> String {
+    let package_display = package_display.trim();
+    match (package_display.is_empty(), task_name) {
+        (false, Some(task)) if tasks_in_package > 1 && !task.eq_ignore_ascii_case(package_display) => {
+            format!("{package_display} ({task})")
+        }
+        (false, _) => package_display.to_string(),
+        (true, Some(task)) => task.to_string(),
+        (true, None) => package_name.to_string(),
+    }
+}
+
+/// A registry key-name component: refuses separators so a family / task id can never point
+/// outside its own `SystemAppData` subkey.
+fn safe_key_component(text: &str) -> bool {
+    !text.is_empty() && !text.contains(['\\', '/']) && text != "." && text != ".."
+}
+
+fn packaged_state_key(family: &str, task_id: &str) -> Option<RegistryKeyPath> {
+    (safe_key_component(family) && safe_key_component(task_id)).then(|| {
+        RegistryKeyPath::new(
+            RegistryRoot::CurrentUser,
+            RegistryView::Native64,
+            format!("{PACKAGED_STATE_SUBKEY}\\{family}\\{task_id}"),
+        )
+    })
+}
+
+fn read_state_at(key: &RegistryKeyPath) -> Option<u32> {
+    crate::registry_settings::read_registry_data(key, PACKAGED_STATE_VALUE)
+        .ok()
+        .flatten()
+        .and_then(|d| d.as_dword())
+}
+
+/// Write the user's choice exactly like Settings does: `Enabled` (2) or `DisabledByUser` (1).
+/// Refused while a policy state is stored.
+fn write_state_at(key: &RegistryKeyPath, enabled: bool) -> PlatformResult<()> {
+    if read_state_at(key).and_then(PackagedTaskState::from_raw).is_some_and(|s| s.is_policy_locked()) {
+        return Err(PlatformError::OperationFailed("policyLocked".into()));
+    }
+    let raw = if enabled { 2 } else { 1 };
+    crate::registry_settings::write_registry_data(key, PACKAGED_STATE_VALUE, &crate::registry_settings::RegistryData::Dword(raw))
+}
+
+/// Startup tasks of the current user's packaged apps (frameworks and resource packages skipped).
+/// Packages whose manifest cannot be read are skipped.
+pub fn list_packaged_entries() -> Vec<StartupEntryFact> {
+    let Ok(packages) = crate::installed_apps::list_store_packages() else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for package in packages {
+        if package.is_framework || package.is_resource || package.install_path.is_empty() {
+            continue;
+        }
+        let install = PathBuf::from(&package.install_path);
+        let Ok(xml) = std::fs::read_to_string(install.join("AppxManifest.xml")) else {
+            continue;
+        };
+        if !xml.contains("windows.startupTask") {
+            continue;
+        }
+        let manifest = parse_manifest_startup_tasks(&xml);
+        let package_name = manifest
+            .identity_name
+            .clone()
+            .or_else(|| package.family_name.rsplit_once('_').map(|(name, _)| name.to_string()))
+            .unwrap_or_else(|| package.family_name.clone());
+        let task_count = manifest.tasks.len();
+        for task in manifest.tasks {
+            if !seen.insert((package.family_name.to_ascii_lowercase(), task.task_id.to_ascii_lowercase())) {
+                continue;
+            }
+            let Some(key) = packaged_state_key(&package.family_name, &task.task_id) else {
+                continue;
+            };
+            let state = packaged_task_state(read_state_at(&key), task.enabled_by_default);
+            let executable = task.executable.as_deref().map(|e| e.replace('/', "\\"));
+            let task_name = packaged_task_display_name(&package.full_name, &package_name, &task.display_name);
+            let label = packaged_entry_label(&package.display_name, &package_name, task_name.as_deref(), task_count);
+            out.push(StartupEntryFact {
+                source: StartupSource::PackagedApp,
+                scope: StartupScope::User,
+                entry_name: task.task_id.clone(),
+                label,
+                command: executable.clone().unwrap_or_default(),
+                target: executable.as_deref().map(|e| install.join(e)),
+                location: StartupLocation::Package { family: package.family_name.clone(), task_id: task.task_id.clone() },
+                enabled: state.is_enabled(),
+                disabled_at_ms: None,
+                service_start: None,
+                microsoft_task: false,
+                task_privileged: false,
+                package: Some(PackagedTaskFacts {
+                    family_name: package.family_name.clone(),
+                    full_name: package.full_name.clone(),
+                    task_id: task.task_id,
+                    task_name,
+                    publisher: package.publisher.clone(),
+                    is_system: package.is_system,
+                    logo_path: (!package.logo_path.is_empty()).then(|| PathBuf::from(&package.logo_path)),
+                    state,
+                }),
+            });
+        }
+    }
+    out
+}
+
+/// Turn a packaged app's startup task on or off for the current user (no admin needed).
+/// Policy-controlled tasks fail with `policyLocked`.
+pub fn set_packaged_task_enabled(family: &str, task_id: &str, enabled: bool) -> PlatformResult<()> {
+    let key = packaged_state_key(family, task_id).ok_or_else(|| PlatformError::OperationFailed("invalidTask".into()))?;
+    write_state_at(&key, enabled)
 }
 
 /// Outcome of reading the boot performance log.
@@ -1540,10 +1951,16 @@ mod tests {
         );
     }
 
+    /// Serializes tests that write under `HKCU\Software\PC Toolkit Pro Test` (one of them removes
+    /// the whole test key afterwards).
+    #[cfg(windows)]
+    static TEST_KEY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// Writes only under a dedicated test key and removes it afterwards.
     #[cfg(windows)]
     #[test]
     fn approved_value_write_read_under_test_key() {
+        let _lock = TEST_KEY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let key = RegistryKeyPath::new(
             RegistryRoot::CurrentUser,
             RegistryView::Native64,
@@ -1556,5 +1973,183 @@ mod tests {
         let cleanup = RegistryKeyPath::new(RegistryRoot::CurrentUser, RegistryView::Native64, "Software\\PC Toolkit Pro Test");
         registry::delete_tree(&cleanup).expect("remove test key");
         assert!(!registry::key_exists(&cleanup));
+    }
+    const MANIFEST: &str = r#"<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10">
+  <Identity Name="Vendor.App" Publisher="CN=Vendor" Version="1.0.0.0" />
+  <Applications>
+    <Application Id="App" Executable="app\Main.exe" EntryPoint="Windows.FullTrustApplication">
+      <Extensions>
+        <!-- <desktop:Extension Category="windows.startupTask"><desktop:StartupTask TaskId="Commented" Enabled="true"/></desktop:Extension> -->
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask TaskId="Inherit" Enabled="true" DisplayName="ms-resource:AppName"/>
+        </uap5:Extension>
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="tray/Tray.exe"
+          EntryPoint="Windows.FullTrustApplication"
+          uap10:Parameters="--startup > quiet">
+          <desktop:StartupTask TaskId='Tray' DisplayName='Vendor &amp; Tray' />
+        </desktop:Extension>
+        <Extension Category="windows.updateTask" EntryPoint="X.UpdateTask"/>
+        <uap:Extension Category="windows.protocol"><uap:Protocol Name="vendor"/></uap:Extension>
+      </Extensions>
+    </Application>
+    <Application Id="Other" Executable="Other.exe">
+      <Extensions>
+        <Extension Category="windows.startupTask" Executable="Bg.exe">
+          <StartupTask TaskId="Plain" Enabled="TRUE" DisplayName="Plain"></StartupTask>
+        </Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <StartupTask TaskId="Outside" Enabled="true"/>
+</Package>"#;
+
+    #[test]
+    fn manifest_startup_tasks_match_any_namespace_prefix() {
+        let facts = parse_manifest_startup_tasks(MANIFEST);
+        assert_eq!(facts.identity_name.as_deref(), Some("Vendor.App"));
+        let ids: Vec<&str> = facts.tasks.iter().map(|t| t.task_id.as_str()).collect();
+        assert_eq!(ids, ["Inherit", "Tray", "Plain"], "comments and tasks outside a startup extension are ignored");
+
+        let inherit = &facts.tasks[0];
+        assert!(inherit.enabled_by_default);
+        assert_eq!(inherit.display_name, "ms-resource:AppName");
+        assert_eq!(inherit.executable.as_deref(), Some("app\\Main.exe"), "falls back to the Application executable");
+
+        let tray = &facts.tasks[1];
+        assert!(!tray.enabled_by_default, "Enabled defaults to false");
+        assert_eq!(tray.display_name, "Vendor & Tray");
+        assert_eq!(tray.executable.as_deref(), Some("tray/Tray.exe"));
+
+        let plain = &facts.tasks[2];
+        assert!(plain.enabled_by_default);
+        assert_eq!(plain.executable.as_deref(), Some("Bg.exe"));
+    }
+
+    #[test]
+    fn manifest_without_startup_tasks_or_truncated_is_empty() {
+        assert!(parse_manifest_startup_tasks("<Package><Identity Name=\"A\"/></Package>").tasks.is_empty());
+        let truncated = "<Package><Extension Category=\"windows.startupTask\"><StartupTask TaskId=\"X\"";
+        assert!(parse_manifest_startup_tasks(truncated).tasks.is_empty());
+    }
+
+    #[test]
+    fn packaged_state_maps_like_startup_task_state() {
+        assert_eq!(packaged_task_state(Some(0), true), PackagedTaskState::Disabled);
+        assert_eq!(packaged_task_state(Some(1), true), PackagedTaskState::DisabledByUser);
+        assert_eq!(packaged_task_state(Some(2), false), PackagedTaskState::Enabled);
+        assert_eq!(packaged_task_state(Some(3), true), PackagedTaskState::DisabledByPolicy);
+        assert_eq!(packaged_task_state(Some(4), false), PackagedTaskState::EnabledByPolicy);
+        // Absent or unknown → manifest default.
+        assert_eq!(packaged_task_state(None, true), PackagedTaskState::Enabled);
+        assert_eq!(packaged_task_state(None, false), PackagedTaskState::Disabled);
+        assert_eq!(packaged_task_state(Some(9), false), PackagedTaskState::Disabled);
+
+        let enabled: Vec<bool> = (0..5).map(|r| packaged_task_state(Some(r), false).is_enabled()).collect();
+        assert_eq!(enabled, [false, false, true, false, true]);
+        let locked: Vec<bool> = (0..5).map(|r| packaged_task_state(Some(r), false).is_policy_locked()).collect();
+        assert_eq!(locked, [false, false, false, true, true]);
+    }
+
+    #[test]
+    fn ms_resource_display_names_build_indirect_strings() {
+        let full = "Vendor.App_1.0.0.0_x64__abc";
+        assert_eq!(
+            ms_resource_candidates(full, "Vendor.App", "ms-resource:AppName"),
+            [
+                "@{Vendor.App_1.0.0.0_x64__abc?ms-resource://Vendor.App/Resources/AppName}",
+                "@{Vendor.App_1.0.0.0_x64__abc?ms-resource://Vendor.App/AppName}",
+            ]
+        );
+        assert_eq!(
+            ms_resource_candidates(full, "Vendor.App", "ms-resource:///Resources/AppName"),
+            ["@{Vendor.App_1.0.0.0_x64__abc?ms-resource://Vendor.App/Resources/AppName}"]
+        );
+        assert_eq!(
+            ms_resource_candidates(full, "Vendor.App", "ms-resource://Vendor.App/Resources/AppName"),
+            ["@{Vendor.App_1.0.0.0_x64__abc?ms-resource://Vendor.App/Resources/AppName}"]
+        );
+        assert_eq!(
+            ms_resource_candidates(full, "Vendor.App", "MS-RESOURCE:Strings/Title")[0],
+            "@{Vendor.App_1.0.0.0_x64__abc?ms-resource://Vendor.App/Strings/Title}"
+        );
+        assert!(ms_resource_candidates(full, "Vendor.App", "Plain name").is_empty());
+        assert_eq!(packaged_task_display_name(full, "Vendor.App", "ms-resource:NoSuchKey"), None);
+        assert_eq!(packaged_task_display_name(full, "Vendor.App", " Tray "), Some("Tray".into()));
+        assert_eq!(packaged_task_display_name(full, "Vendor.App", "  "), None);
+    }
+
+    #[test]
+    fn packaged_labels_follow_settings_naming() {
+        assert_eq!(packaged_entry_label("Samsung Notes", "Pkg", Some("SamsungNotesSysTray"), 1), "Samsung Notes");
+        assert_eq!(packaged_entry_label("Vendor", "Pkg", Some("Tray"), 2), "Vendor (Tray)");
+        assert_eq!(packaged_entry_label("Vendor", "Pkg", Some("vendor"), 2), "Vendor");
+        assert_eq!(packaged_entry_label(" ", "Pkg", Some("Tray"), 1), "Tray");
+        assert_eq!(packaged_entry_label("", "Pkg", None, 1), "Pkg");
+    }
+
+    #[test]
+    fn packaged_state_keys_refuse_path_separators() {
+        let key = packaged_state_key("Vendor.App_abc", "Tray").unwrap();
+        assert!(key.subkey.ends_with("\\SystemAppData\\Vendor.App_abc\\Tray"));
+        assert_eq!(key.root, RegistryRoot::CurrentUser);
+        assert!(packaged_state_key("Vendor.App_abc", "..\\..\\Run").is_none());
+        assert!(packaged_state_key("", "Tray").is_none());
+        assert!(packaged_state_key("a/b", "Tray").is_none());
+    }
+
+    /// Writes only under a dedicated test key and removes it afterwards.
+    #[cfg(windows)]
+    #[test]
+    fn packaged_state_write_under_test_key() {
+        let _lock = TEST_KEY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = RegistryKeyPath::new(
+            RegistryRoot::CurrentUser,
+            RegistryView::Native64,
+            "Software\\PC Toolkit Pro Test\\PackagedStartup",
+        );
+        let key = root.child("Vendor.App_abc").child("Tray");
+        assert_eq!(read_state_at(&key), None);
+        write_state_at(&key, false).expect("disable creates the key");
+        assert_eq!(read_state_at(&key), Some(1), "disabled by user");
+        write_state_at(&key, true).expect("enable");
+        assert_eq!(read_state_at(&key), Some(2));
+        crate::registry_settings::write_registry_data(&key, "State", &crate::registry_settings::RegistryData::Dword(4))
+            .expect("simulate policy");
+        assert!(matches!(write_state_at(&key, false), Err(PlatformError::OperationFailed(code)) if code == "policyLocked"));
+        assert_eq!(read_state_at(&key), Some(4), "policy state is never overwritten");
+        let cleanup = RegistryKeyPath::new(RegistryRoot::CurrentUser, RegistryView::Native64, "Software\\PC Toolkit Pro Test");
+        registry::delete_tree(&cleanup).expect("remove test key");
+        assert!(!registry::key_exists(&cleanup));
+    }
+
+    /// Manual read-only smoke check (`cargo test -p pctoolkit-platform packaged_startup_smoke --
+    /// --ignored --nocapture`). Prints packaged startup tasks; never changes them.
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn packaged_startup_smoke() {
+        let started = std::time::Instant::now();
+        let entries = list_packaged_entries();
+        for entry in &entries {
+            let package = entry.package.as_ref().expect("packaged facts");
+            println!(
+                "{:<34} taskName={:?} family={} task={} state={:?} enabled={} publisher={} logo={} targetExists={}",
+                entry.label,
+                package.task_name,
+                package.family_name,
+                package.task_id,
+                package.state,
+                entry.enabled,
+                package.publisher,
+                package.logo_path.is_some(),
+                entry.target.as_ref().is_some_and(|t| t.exists()),
+            );
+        }
+        println!("packaged startup tasks={} elapsedMs={}", entries.len(), started.elapsed().as_millis());
     }
 }
