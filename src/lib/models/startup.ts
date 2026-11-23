@@ -1,6 +1,6 @@
 /** Startup Manager protocol (mirrors `pctoolkit_core::startup`). */
 
-export type StartupSource = 'run' | 'runOnce' | 'startupFolder' | 'scheduledTask' | 'service';
+export type StartupSource = 'run' | 'runOnce' | 'startupFolder' | 'scheduledTask' | 'service' | 'packagedApp';
 export type StartupScope = 'user' | 'machine';
 export type StartupState = 'enabled' | 'disabled' | 'delayed';
 export type StartupImpact = 'high' | 'medium' | 'low' | 'notFlagged' | 'unknown';
@@ -66,6 +66,11 @@ export interface StartupIcon {
 export const STARTUP_FILTERS = ['all', 'enabled', 'disabled', 'new'] as const;
 export type StartupFilter = (typeof STARTUP_FILTERS)[number];
 
+/** A packaged (Store) app startup task Windows reports as controlled by group policy. */
+export function isPolicyLocked(item: StartupItem): boolean {
+  return item.source === 'packagedApp' && !item.canToggle;
+}
+
 /** "Delayed" still starts with Windows, so it counts as enabled for filters and counts. */
 export function startsWithWindows(item: StartupItem): boolean {
   return item.state !== 'disabled';
@@ -84,10 +89,10 @@ export function matchesStartupFilter(item: StartupItem, filter: StartupFilter): 
   }
 }
 
-export function matchesStartupQuery(item: StartupItem, query: string): boolean {
+export function matchesStartupQuery(item: StartupItem, query: string, sourceLabel = ''): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return [item.name, item.publisher ?? '', item.entryName, item.description ?? ''].some((v) =>
+  return [item.name, item.publisher ?? '', item.entryName, item.description ?? '', sourceLabel].some((v) =>
     v.toLowerCase().includes(q)
   );
 }

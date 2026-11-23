@@ -66,7 +66,8 @@ export type LeftoverArea =
   | 'startup'
   | 'services'
   | 'tasks'
-  | 'firewall';
+  | 'firewall'
+  | 'traces';
 
 /** Stage of the program listing (`listing` events): uninstall keys → each program → Store apps. */
 export type ListingStage = 'registry' | 'desktop' | 'store' | 'done';
@@ -105,6 +106,7 @@ export const LEFTOVER_AREAS: LeftoverArea[] = [
   'services',
   'tasks',
   'firewall',
+  'traces',
 ];
 
 export type LeftoverKind =

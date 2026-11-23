@@ -74,7 +74,7 @@ pub use registry::{
     delete_tree as delete_registry_tree, delete_value as delete_registry_value,
     export_key as export_registry_key, key_exists as registry_key_exists,
     read_value as read_registry_value, subkey_names as registry_subkey_names,
-    system32_exe, values as registry_values, RegistryKeyPath, RegistryRoot, RegistryValueText, RegistryView,
+    system32_exe, value_names as registry_value_names, values as registry_values, RegistryKeyPath, RegistryRoot, RegistryValueText, RegistryView,
 };
 pub use system_entries::{
     create_restore_point, delete_scheduled_task, delete_service, list_scheduled_tasks,

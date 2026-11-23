@@ -263,8 +263,8 @@ where
                         log.push(line);
                     }
                     log.push(format!(
-                        "Memory optimized: freed {} bytes (measured)",
-                        mem.freed_bytes
+                        "Memory optimized: freed {} (measured)",
+                        crate::shared::format_size(mem.freed_bytes)
                     ));
                     memory = Some(mem);
                 }

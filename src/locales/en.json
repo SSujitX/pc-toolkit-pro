@@ -56,7 +56,13 @@
     "uptime": "Uptime",
     "os": "OS",
     "quickActions": "Quick Actions",
-    "notAvailable": "Not Available"
+    "notAvailable": "Not Available",
+    "actionGroups": {
+      "windowsTools": "Windows tools",
+      "systemTools": "System tools",
+      "maintenance": "Maintenance",
+      "settings": "Settings"
+    }
   },
   "actions": {
     "taskManager": "Task Manager",
@@ -73,7 +79,28 @@
     "networkConnections": "Network",
     "snippingTool": "Snipping Tool",
     "notepad": "Notepad",
-    "volumeMixer": "Volume Mixer"
+    "volumeMixer": "Volume Mixer",
+    "eventViewer": "Event Viewer",
+    "resourceMonitor": "Resource Monitor",
+    "reliabilityMonitor": "Reliability Monitor",
+    "computerManagement": "Computer Management",
+    "taskScheduler": "Task Scheduler",
+    "systemProperties": "System Properties",
+    "environmentVariables": "Environment Variables",
+    "directXDiagnostic": "DirectX Diagnostic",
+    "diskCleanup": "Disk Cleanup",
+    "defragmentOptimize": "Defragment & Optimize",
+    "systemRestore": "System Restore",
+    "memoryDiagnostic": "Memory Diagnostic",
+    "windowsUpdate": "Windows Update",
+    "windowsSecurity": "Windows Security",
+    "startupApps": "Startup Apps",
+    "installedApps": "Installed Apps",
+    "storageSettings": "Storage",
+    "powerOptions": "Power Options",
+    "soundSettings": "Sound",
+    "displaySettings": "Display",
+    "firewall": "Windows Firewall"
   },
   "cleaner": {
     "title": "Cleaner",
@@ -243,7 +270,8 @@
         "startup": "Startup entries",
         "services": "Services",
         "tasks": "Scheduled tasks",
-        "firewall": "Firewall rules"
+        "firewall": "Firewall rules",
+        "traces": "Windows traces"
       }
     },
     "leftovers": {
@@ -1239,7 +1267,7 @@
       "loading": {
         "status": "Reading startup entries",
         "title": "Checking what starts with Windows…",
-        "hint": "Read-only. Run keys, Startup folders, logon tasks, and services."
+        "hint": "Read-only. Run keys, Startup folders, logon tasks, services, and Store apps."
       },
       "boot": {
         "lastBoot": "Last boot took {seconds} s",
@@ -1271,7 +1299,8 @@
         "runOnce": "Run once",
         "startupFolder": "Startup folder",
         "scheduledTask": "Scheduled task",
-        "service": "Service"
+        "service": "Service",
+        "packagedApp": "Store app"
       },
       "scopes": {
         "user": "This user",
@@ -1300,11 +1329,13 @@
         "new": "New",
         "broken": "Missing file",
         "admin": "Admin",
-        "system": "Windows"
+        "system": "Windows",
+        "policy": "Policy"
       },
       "badgeHints": {
         "broken": "The program this entry starts no longer exists. You can delete the entry; a backup is kept.",
-        "admin": "Changing this entry affects all users and needs administrator rights."
+        "admin": "Changing this entry affects all users and needs administrator rights.",
+        "policy": "Your organization's policy controls whether this app starts with Windows."
       },
       "unknownPublisher": "Unknown publisher",
       "toggleLabel": "Start {name} with Windows",

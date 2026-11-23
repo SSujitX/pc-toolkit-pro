@@ -13,7 +13,28 @@ export type QuickActionId =
   | 'networkConnections'
   | 'snippingTool'
   | 'notepad'
-  | 'volumeMixer';
+  | 'volumeMixer'
+  | 'eventViewer'
+  | 'resourceMonitor'
+  | 'reliabilityMonitor'
+  | 'computerManagement'
+  | 'taskScheduler'
+  | 'systemProperties'
+  | 'environmentVariables'
+  | 'directXDiagnostic'
+  | 'diskCleanup'
+  | 'defragmentOptimize'
+  | 'systemRestore'
+  | 'memoryDiagnostic'
+  | 'windowsUpdate'
+  | 'windowsSecurity'
+  | 'startupApps'
+  | 'installedApps'
+  | 'storageSettings'
+  | 'powerOptions'
+  | 'soundSettings'
+  | 'displaySettings'
+  | 'firewall';
 
 export const QUICK_ACTIONS: { id: QuickActionId; labelKey: string }[] = [
   { id: 'taskManager', labelKey: 'actions.taskManager' },
@@ -32,6 +53,17 @@ export const QUICK_ACTIONS: { id: QuickActionId; labelKey: string }[] = [
   { id: 'notepad', labelKey: 'actions.notepad' },
   { id: 'volumeMixer', labelKey: 'actions.volumeMixer' },
 ];
+
+export type QuickActionGroup = 'windowsTools' | 'systemTools' | 'maintenance' | 'settings';
+
+/** Quick actions grouped for the System page (each opens Windows' own tool). */
+export const QUICK_ACTION_GROUPS: { id: QuickActionGroup; actions: QuickActionId[] }[] = [
+  { id: 'windowsTools', actions: QUICK_ACTIONS.map((a) => a.id) },
+  { id: 'systemTools', actions: ['eventViewer', 'resourceMonitor', 'reliabilityMonitor', 'computerManagement', 'taskScheduler', 'systemProperties', 'environmentVariables', 'directXDiagnostic'] },
+  { id: 'maintenance', actions: ['diskCleanup', 'defragmentOptimize', 'systemRestore', 'memoryDiagnostic', 'windowsUpdate', 'windowsSecurity'] },
+  { id: 'settings', actions: ['startupApps', 'installedApps', 'storageSettings', 'powerOptions', 'soundSettings', 'displaySettings', 'firewall'] },
+];
+
 
 export type PowerAction =
   | 'shutdown'

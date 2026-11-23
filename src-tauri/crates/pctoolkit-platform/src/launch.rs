@@ -23,6 +23,27 @@ pub enum QuickActionId {
     SnippingTool,
     Notepad,
     VolumeMixer,
+    EventViewer,
+    ResourceMonitor,
+    ReliabilityMonitor,
+    ComputerManagement,
+    TaskScheduler,
+    SystemProperties,
+    EnvironmentVariables,
+    DirectXDiagnostic,
+    DiskCleanup,
+    DefragmentOptimize,
+    SystemRestore,
+    MemoryDiagnostic,
+    WindowsUpdate,
+    WindowsSecurity,
+    StartupApps,
+    InstalledApps,
+    StorageSettings,
+    PowerOptions,
+    SoundSettings,
+    DisplaySettings,
+    Firewall,
 }
 
 pub fn launch_program(id: QuickActionId) -> PlatformResult<()> {
@@ -44,6 +65,27 @@ pub fn launch_program(id: QuickActionId) -> PlatformResult<()> {
         QuickActionId::Settings => launch_settings(),
         QuickActionId::CommandPromptAdmin => elevate(&cmd_exe()),
         QuickActionId::PowerShellAdmin => elevate(&crate::registry::powershell_exe()),
+        QuickActionId::EventViewer => spawn_shell("eventvwr.msc"),
+        QuickActionId::ResourceMonitor => spawn_system32("resmon.exe"),
+        QuickActionId::ReliabilityMonitor => spawn_system32_args("perfmon.exe", &["/rel"]),
+        QuickActionId::ComputerManagement => spawn_shell("compmgmt.msc"),
+        QuickActionId::TaskScheduler => spawn_shell("taskschd.msc"),
+        QuickActionId::SystemProperties => spawn_system32("SystemPropertiesAdvanced.exe"),
+        QuickActionId::EnvironmentVariables => spawn_system32_args("rundll32.exe", &["sysdm.cpl,EditEnvironmentVariables"]),
+        QuickActionId::DirectXDiagnostic => spawn_system32("dxdiag.exe"),
+        QuickActionId::DiskCleanup => spawn_system32("cleanmgr.exe"),
+        QuickActionId::DefragmentOptimize => spawn_system32("dfrgui.exe"),
+        QuickActionId::SystemRestore => spawn_system32("rstrui.exe"),
+        QuickActionId::MemoryDiagnostic => spawn_system32("MdSched.exe"),
+        QuickActionId::WindowsUpdate => spawn_shell("ms-settings:windowsupdate"),
+        QuickActionId::WindowsSecurity => spawn_shell("windowsdefender:"),
+        QuickActionId::StartupApps => spawn_shell("ms-settings:startupapps"),
+        QuickActionId::InstalledApps => spawn_shell("ms-settings:appsfeatures"),
+        QuickActionId::StorageSettings => spawn_shell("ms-settings:storagesense"),
+        QuickActionId::PowerOptions => spawn_shell("powercfg.cpl"),
+        QuickActionId::SoundSettings => spawn_shell("mmsys.cpl"),
+        QuickActionId::DisplaySettings => spawn_shell("ms-settings:display"),
+        QuickActionId::Firewall => spawn_shell("wf.msc"),
     }
 }
 
@@ -73,6 +115,19 @@ fn spawn_detached(path: &std::path::Path) -> PlatformResult<()> {
         "",
         &path.to_string_lossy(),
     ]);
+    crate::process::hide_console(&mut cmd);
+    cmd.spawn()
+        .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
+    Ok(())
+}
+
+/// System32 tool with fixed arguments (constants only — never user input).
+fn spawn_system32_args(exe: &str, args: &[&str]) -> PlatformResult<()> {
+    let path = system32_path(exe);
+    let mut cmd = Command::new(cmd_exe());
+    cmd.args(["/C", "start", ""]);
+    cmd.arg(&path);
+    cmd.args(args);
     crate::process::hide_console(&mut cmd);
     cmd.spawn()
         .map_err(|e| PlatformError::OperationFailed(e.to_string()))?;
