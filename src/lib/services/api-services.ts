@@ -189,6 +189,15 @@ export class DeepCleanerService {
     return invoke('cancel_cleanup');
   }
 
+  static listDrives(): Promise<import('@/lib/models/deep-cleaner').DeepCleanupDrive[]> {
+    return invoke('list_deep_cleanup_drives_command');
+  }
+
+  /** Save the extra drives searched for projects; returns the updated drive list. */
+  static setDrives(letters: string[]): Promise<import('@/lib/models/deep-cleaner').DeepCleanupDrive[]> {
+    return invoke('set_deep_cleanup_drives_command', { request: { letters } });
+  }
+
   static probeRunningProcesses(
     names: string[]
   ): Promise<import('@/lib/models/deep-cleaner').RunningProcessGroup[]> {
@@ -364,6 +373,13 @@ export class UninstallerService {
     } finally {
       unlisten?.();
     }
+  }
+
+  /** Read-only: the program's app-data and profile dot-folders that exist right now. */
+  static async previewRelatedData(
+    programId: string
+  ): Promise<import('@/lib/models/uninstaller').RelatedDataPreview> {
+    return await invoke('preview_program_related_data', { request: { programId } });
   }
 
   static async scanLeftoversWithProgress(
