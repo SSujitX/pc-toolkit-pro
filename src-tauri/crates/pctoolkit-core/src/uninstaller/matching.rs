@@ -29,7 +29,8 @@ pub fn compact(text: &str) -> String {
 
 fn is_version_like(word: &str) -> bool {
     let w = word.trim_start_matches(['v', 'V']);
-    !w.is_empty() && w.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '-' || c == '_')
+    // `+` covers semver build metadata ("0.4.24+1").
+    !w.is_empty() && w.chars().all(|c| c.is_ascii_digit() || matches!(c, '.' | '-' | '_' | '+'))
         && w.chars().any(|c| c.is_ascii_digit())
 }
 
@@ -481,6 +482,7 @@ mod tests {
         assert_eq!(product_name("Bitvise SSH Client 9.66 (remove only)"), "Bitvise SSH Client");
         assert_eq!(product_name("Notepad++ (64-bit x64)"), "Notepad++");
         assert_eq!(product_name("App v2.1"), "App");
+        assert_eq!(product_name("LM Studio 0.4.24+1"), "LM Studio");
     }
 
     #[test]
