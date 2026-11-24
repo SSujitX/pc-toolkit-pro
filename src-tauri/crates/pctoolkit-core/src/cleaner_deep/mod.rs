@@ -26,6 +26,7 @@ pub mod provider;
 mod resolve;
 pub mod safety;
 mod scan;
+mod scope;
 mod special;
 pub mod walk;
 
@@ -38,6 +39,7 @@ pub use catalog::{validate_embedded_catalog, CatalogIssue};
 pub use matcher::MatcherSpec;
 pub use provider::{DeepCleanupProvider, ProviderContext};
 pub use safety::{RootPolicy, RootRefusal, SafetyContext};
+pub use scope::{list_deep_cleanup_drives, set_deep_cleanup_project_drives, DeepCleanupDrive};
 pub use special::SpecialKind;
 pub use walk::{clean_directory, measure_directory, CleanMode, CleanTally, MeasureTally};
 
