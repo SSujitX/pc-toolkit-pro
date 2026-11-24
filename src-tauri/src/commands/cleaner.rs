@@ -2,7 +2,9 @@ use pctoolkit_core::{
     cancel_cleanup as core_cancel, execute_cleanup as core_execute, execute_deep_cleanup,
     scan_cleanup_with_progress, scan_deep_cleanup_with_progress, CleanupExecuteRequest,
     CleanupResult, CleanupScan, DeepCleanupExecuteRequest, DeepCleanupResult, DeepCleanupScan,
+    list_deep_cleanup_drives, set_deep_cleanup_project_drives, DeepCleanupDrive,
 };
+use serde::Deserialize;
 use tauri::AppHandle;
 
 use crate::commands::error::{run_blocking, CommandResult};
@@ -59,4 +61,27 @@ pub async fn execute_deep_cleanup_command(
 #[tauri::command]
 pub fn cancel_cleanup() {
     core_cancel();
+}
+
+/// Fixed drives for the Deep Cleanup scope picker (system drive always selected).
+#[tauri::command]
+pub async fn list_deep_cleanup_drives_command() -> CommandResult<Vec<DeepCleanupDrive>> {
+    run_blocking("list_deep_cleanup_drives", || {
+        Ok::<_, pctoolkit_core::CoreError>(list_deep_cleanup_drives())
+    })
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeepCleanupDrivesRequest {
+    /// Extra drive letters to search for projects ("D", "E").
+    pub letters: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn set_deep_cleanup_drives_command(
+    request: DeepCleanupDrivesRequest,
+) -> CommandResult<Vec<DeepCleanupDrive>> {
+    run_blocking("set_deep_cleanup_drives", move || set_deep_cleanup_project_drives(request.letters)).await
 }
