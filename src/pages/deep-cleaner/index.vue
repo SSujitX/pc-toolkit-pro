@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   Bot,
@@ -18,6 +18,7 @@ import PtOperationWorkspace from '@/components/custom/pt-operation-workspace.vue
 import PtSoftSelect from '@/components/custom/pt-soft-select.vue';
 import PtDeepCleanupConfirm from '@/pages/deep-cleaner/pt-deep-cleanup-confirm.vue';
 import PtDeepCleanupResult from '@/pages/deep-cleaner/pt-deep-cleanup-result.vue';
+import PtDeepCleanupDrives from '@/pages/deep-cleaner/pt-deep-cleanup-drives.vue';
 import { formatBytes } from '@/lib/utils/format';
 import {
   execReasonKey,
@@ -176,6 +177,10 @@ watch(
   { immediate: true }
 );
 
+onMounted(() => {
+  void store.loadDrives();
+});
+
 onUnmounted(() => {
   if (elapsedTimer != null) window.clearInterval(elapsedTimer);
 });
@@ -245,6 +250,11 @@ function reasonHint(rule: DeepCleanupRule): string {
     content-mode="workspace"
   >
     <template #actions>
+      <PtDeepCleanupDrives
+        v-if="!isBusy && store.drives.length > 1"
+        :drives="store.drives"
+        @toggle="store.setDriveSelected"
+      />
       <button
         v-if="showResults"
         type="button"
