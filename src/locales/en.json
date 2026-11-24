@@ -259,7 +259,10 @@
       "start": "Start uninstall",
       "back": "Back",
       "adminHint": "Some selected programs are installed for all users. Without administrator rights their leftovers in Program Files, ProgramData, and machine-wide registry keys are skipped. Restart as administrator first for a complete cleanup.",
-      "restartAdmin": "Restart as administrator"
+      "restartAdmin": "Restart as administrator",
+      "relatedTitle": "Data this program keeps",
+      "relatedLoading": "Looking for settings and data folders…",
+      "relatedHint": "Nothing is deleted now. After the uninstall these folders are offered in the leftover review. Dot-folders in your user folder (such as .lmstudio) start unselected."
     },
     "progress": {
       "area": "Checking",
@@ -310,7 +313,9 @@
       "restartAdmin": "Restart as administrator",
       "confirmTitle": "Delete {count} leftover item? | Delete {count} leftover items?",
       "confirmBody": "Files and folders are moved to the Recycle Bin. Registry entries are exported to a .reg backup in the PC Toolkit Pro data folder before they are deleted.",
-      "confirmAction": "Delete leftovers"
+      "confirmAction": "Delete leftovers",
+      "userData": "May contain user data",
+      "userDataHint": "Settings, downloads, or models the program stored for your account. Check before deleting."
     },
     "summary": {
       "title": "Uninstall summary",
@@ -779,6 +784,15 @@
       "busyHint": "Items in use by another app were skipped. Close the app and clean again to remove them.",
       "ruleFreed": "{bytes} · {count} item | {bytes} · {count} items",
       "dismiss": "Dismiss"
+    },
+    "drives": {
+      "button": "Drives: {drives}",
+      "buttonEmpty": "Drives",
+      "title": "Search for projects on",
+      "localDisk": "Local Disk",
+      "space": "{free} free of {total}",
+      "always": "Always",
+      "hint": "Cache rules always check their own folders. Extra drives are searched for project build folders (node_modules, target, bin/obj, …); system and game folders are skipped."
     }
   },
   "power": {
