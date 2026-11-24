@@ -289,6 +289,30 @@ fn discovery_roots_skip_appdata_hidden_media_and_onedrive() {
 }
 
 #[test]
+fn extra_drive_roots_skip_system_program_and_game_folders() {
+    let drive = TempTree::new("extra-drive");
+    for name in [
+        "Windows",
+        "Program Files",
+        "ProgramData",
+        "Users",
+        "$Recycle.Bin",
+        "SteamLibrary",
+        ".hidden",
+        "work",
+        "Clients",
+    ] {
+        drive.dir(name);
+    }
+    let roots = extra_drive_roots(&[drive.0.clone()]);
+    let names: Vec<String> = roots
+        .iter()
+        .map(|r| r.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, vec!["Clients".to_string(), "work".to_string()]);
+}
+
+#[test]
 fn ids_are_stable_and_path_free() {
     let a = project_id(Path::new(r"C:\Users\Tester\code\App"));
     let b = project_id(Path::new(r"c:\users\tester\CODE\app"));

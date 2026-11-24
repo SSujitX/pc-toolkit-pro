@@ -37,6 +37,8 @@ pub struct FixedVolume {
     pub free_bytes: u64,
     /// `Volume{GUID}` (the key name Optimize Drives uses for its statistics).
     pub volume_guid: Option<String>,
+    /// Volume label ("Essentials") when one is set.
+    pub label: Option<String>,
 }
 
 /// Local fixed volumes that are mounted and readable (locked BitLocker volumes are left out
@@ -581,15 +583,24 @@ mod imp {
         let mut total = 0u64;
         unsafe { GetDiskFreeSpaceExW(PCWSTR(root.as_ptr()), Some(&mut free), Some(&mut total), None) }.ok()?;
         let mut fs_name = [0u16; 64];
-        let file_system = unsafe {
-            GetVolumeInformationW(PCWSTR(root.as_ptr()), None, None, None, None, Some(&mut fs_name))
+        let mut label_buf = [0u16; 264];
+        let info_ok = unsafe {
+            GetVolumeInformationW(
+                PCWSTR(root.as_ptr()),
+                Some(&mut label_buf),
+                None,
+                None,
+                None,
+                Some(&mut fs_name),
+            )
         }
-        .ok()
-        .map(|_| {
-            let end = fs_name.iter().position(|c| *c == 0).unwrap_or(fs_name.len());
-            String::from_utf16_lossy(&fs_name[..end])
-        })
-        .filter(|s| !s.is_empty());
+        .is_ok();
+        let text = |buf: &[u16]| {
+            let end = buf.iter().position(|c| *c == 0).unwrap_or(buf.len());
+            String::from_utf16_lossy(&buf[..end]).trim().to_string()
+        };
+        let file_system = Some(text(&fs_name)).filter(|s| info_ok && !s.is_empty());
+        let label = Some(text(&label_buf)).filter(|s| info_ok && !s.is_empty());
         let mut guid_buf = [0u16; 64];
         let volume_guid = unsafe { GetVolumeNameForVolumeMountPointW(PCWSTR(root.as_ptr()), &mut guid_buf) }
             .ok()
@@ -600,7 +611,7 @@ mod imp {
                 let close = name[start..].find('}')?;
                 Some(name[start..start + close + 1].to_string())
             });
-        Some(FixedVolume { letter, file_system, total_bytes: total, free_bytes: free, volume_guid })
+        Some(FixedVolume { letter, file_system, total_bytes: total, free_bytes: free, volume_guid, label })
     }
 
     struct OwnedHandle(HANDLE);

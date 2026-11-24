@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ShieldAlert, X } from '@lucide/vue';
+import { FolderOpen, ShieldAlert, X } from '@lucide/vue';
 import { formatBytes } from '@/lib/utils/format';
 import PtProgramIcon from '@/pages/uninstaller/pt-program-icon.vue';
+import PtMiddleEllipsis from '@/components/custom/pt-middle-ellipsis.vue';
+import { UninstallerService } from '@/lib/services/api-services';
 import { trapDialogFocus } from '@/lib/services/dialog-focus-service';
 import {
   type InstalledProgram,
+  type LeftoverItem,
   type UninstallOptions,
 } from '@/lib/models/uninstaller';
 
@@ -42,13 +45,45 @@ watch(
 );
 onBeforeUnmount(() => releaseFocus?.());
 
+/** Data folders of the single program being removed (app data and profile dot-folders). */
+const related = ref<LeftoverItem[]>([]);
+const relatedLoading = ref(false);
+let relatedRequest = 0;
+
+async function loadRelated(programId: string) {
+  const request = ++relatedRequest;
+  related.value = [];
+  relatedLoading.value = true;
+  try {
+    const preview = await UninstallerService.previewRelatedData(programId);
+    if (request === relatedRequest) related.value = preview.items;
+  } catch {
+    // Informational only: the leftover scan after the uninstall still finds these folders.
+    if (request === relatedRequest) related.value = [];
+  } finally {
+    if (request === relatedRequest) relatedLoading.value = false;
+  }
+}
+
 watch(open, (isOpen) => {
-  if (!isOpen) return;
+  if (!isOpen) {
+    relatedRequest++;
+    return;
+  }
   // Only pre-tick quick mode when at least one selected installer supports it.
   quiet.value = props.programs.some((p) => p.quietSupported);
   scanLeftovers.value = true;
   createRestorePoint.value = false;
+  const only = props.programs.length === 1 ? props.programs[0] : null;
+  if (only) {
+    void loadRelated(only.id);
+  } else {
+    related.value = [];
+    relatedLoading.value = false;
+  }
 });
+
+const relatedBytes = computed(() => related.value.reduce((n, i) => n + i.bytes, 0));
 
 const title = computed(() =>
   props.programs.length === 1
@@ -117,6 +152,30 @@ function onForce() {
         <p v-if="programs.length > 1 && totalBytes" class="total">
           {{ t('uninstaller.selectedSize') }} <strong>{{ formatBytes(totalBytes) }}</strong>
         </p>
+
+        <section v-if="relatedLoading || related.length" class="related" aria-live="polite">
+          <header class="related-head">
+            <strong>{{ t('uninstaller.confirm.relatedTitle') }}</strong>
+            <span v-if="relatedLoading" class="related-spinner" aria-hidden="true" />
+            <span v-else-if="relatedBytes" class="related-total">{{ formatBytes(relatedBytes) }}</span>
+          </header>
+          <p v-if="relatedLoading" class="related-note">{{ t('uninstaller.confirm.relatedLoading') }}</p>
+          <template v-else>
+            <ul class="related-list">
+              <li v-for="item in related" :key="item.id">
+                <FolderOpen :size="15" :stroke-width="1.8" aria-hidden="true" />
+                <PtMiddleEllipsis class="related-path" :text="item.location" />
+                <span
+                  v-if="item.userData"
+                  class="related-badge"
+                  :title="t('uninstaller.leftovers.userDataHint')"
+                >{{ t('uninstaller.leftovers.userData') }}</span>
+                <span class="related-size">{{ item.bytes ? formatBytes(item.bytes) : '' }}</span>
+              </li>
+            </ul>
+            <p class="related-note">{{ t('uninstaller.confirm.relatedHint') }}</p>
+          </template>
+        </section>
 
         <section v-if="needsAdminHint" class="admin-hint">
           <ShieldAlert :size="16" :stroke-width="1.9" aria-hidden="true" />
@@ -329,6 +388,80 @@ function onForce() {
   font-weight: 650;
 }
 .option small {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.related {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+  border-radius: 12px;
+}
+.related-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.related-total {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+.related-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in oklab, var(--primary) 25%, transparent);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: related-spin 0.8s linear infinite;
+}
+@keyframes related-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.related-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.related-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  color: var(--muted-foreground);
+}
+.related-list li > svg {
+  flex: none;
+}
+.related-path {
+  min-width: 0;
+  flex: 1;
+  color: var(--foreground);
+  font-size: 0.75rem;
+}
+.related-badge {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+.related-size {
+  flex: none;
+  min-width: 56px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-align: right;
+}
+.related-note {
+  margin: 6px 0 0;
   color: var(--muted-foreground);
   font-size: 0.75rem;
   line-height: 1.4;

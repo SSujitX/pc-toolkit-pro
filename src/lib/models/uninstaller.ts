@@ -131,6 +131,15 @@ export interface LeftoverItem {
   confidence: LeftoverConfidence;
   requiresAdmin: boolean;
   selected: boolean;
+  /** Per-user data (settings, downloads, models) rather than program files. */
+  userData: boolean;
+}
+
+/** Data folders of a still-installed program, previewed in the uninstall confirmation. */
+export interface RelatedDataPreview {
+  programId: string;
+  items: LeftoverItem[];
+  totalBytes: number;
 }
 
 export interface LeftoverScan {

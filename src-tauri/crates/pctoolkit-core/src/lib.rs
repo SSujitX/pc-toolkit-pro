@@ -19,7 +19,8 @@ pub use cleaner::{
     CleanupExecuteRequest, CleanupProgress, CleanupResult, CleanupScan,
 };
 pub use cleaner_deep::{
-    execute_deep_cleanup, scan_deep_cleanup_with_progress, DeepCleanupExecuteRequest,
+    execute_deep_cleanup, list_deep_cleanup_drives, scan_deep_cleanup_with_progress,
+    set_deep_cleanup_project_drives, DeepCleanupDrive, DeepCleanupExecuteRequest,
     DeepCleanupGroup, DeepCleanupProgress, DeepCleanupResult, DeepCleanupRuleResult,
     DeepCleanupScan,
 };
@@ -41,7 +42,7 @@ pub use power::{
 pub use shared::{CoreError, CoreErrorCode, CoreResult};
 pub use uninstaller::{
     cancel_uninstaller, clean_leftovers, dismiss_removed_program, focus_uninstaller, get_program_icons, list_programs,
-    scan_program_leftovers, uninstall_program, ProgramIcon,
+    preview_related_data, scan_program_leftovers, uninstall_program, ProgramIcon, RelatedDataPreview,
     InstalledProgram, LeftoverCleanRequest, LeftoverCleanResult, LeftoverScan, ProgramInventory,
     UninstallReport, UninstallRequest, UninstallerProgress,
 };

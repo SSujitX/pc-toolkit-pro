@@ -302,3 +302,14 @@ export function summarizeExecResults(
   for (const result of results) summary[result.status] += 1;
   return summary;
 }
+
+/** A fixed drive in the Deep Cleanup scope picker (extra drives are searched for projects). */
+export interface DeepCleanupDrive {
+  letter: string;
+  label: string | null;
+  totalBytes: number;
+  freeBytes: number;
+  /** The Windows drive: always searched, not toggleable. */
+  system: boolean;
+  selected: boolean;
+}

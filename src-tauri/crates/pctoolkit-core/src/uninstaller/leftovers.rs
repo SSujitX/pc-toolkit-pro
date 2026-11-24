@@ -70,6 +70,9 @@ pub struct LeftoverItem {
     pub confidence: LeftoverConfidence,
     pub requires_admin: bool,
     pub selected: bool,
+    /// The folder holds the program's per-user data (settings, downloads, models) rather than
+    /// program files; the UI warns before it is removed.
+    pub user_data: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +156,7 @@ impl Collector {
                 confidence,
                 requires_admin,
                 selected: confidence == LeftoverConfidence::High,
+                user_data: false,
             },
             action,
         });
@@ -209,6 +213,7 @@ pub(crate) fn scan_leftovers(
     report(&out, on_area, "folders");
     scan_install_dir(ctx, &mut out);
     scan_named_folders(ctx, &mut out);
+    scan_profile_dot_folders(ctx, &mut out);
     report(&out, on_area, "registry");
     scan_software_keys(ctx, &mut out);
     scan_app_paths(ctx, &mut out);
@@ -259,6 +264,8 @@ fn push_folder(ctx: &ScanContext<'_>, out: &mut Collector, path: PathBuf, confid
         (LeftoverKind::File, meta.len())
     };
     let requires_admin = ctx.path_needs_admin(&path);
+    let user_data = is_user_data_path(&path, ctx.program.install_dir.as_deref());
+    let before = out.items.len();
     out.push(
         kind,
         path.to_string_lossy().into_owned(),
@@ -268,6 +275,75 @@ fn push_folder(ctx: &ScanContext<'_>, out: &mut Collector, path: PathBuf, confid
         requires_admin,
         LeftoverAction::RecyclePath(path),
     );
+    if out.items.len() > before {
+        if let Some(last) = out.items.last_mut() {
+            last.item.user_data = user_data;
+        }
+    }
+}
+
+/// Per-user data roots: Roaming / Local / LocalLow app data and the profile folder itself (for
+/// `~\.<tool>` folders). Program files installed per user (`Local\Programs`) are not user data.
+fn is_user_data_path(path: &Path, install_dir: Option<&Path>) -> bool {
+    if install_dir.is_some_and(|dir| is_same_or_inside(path, dir)) {
+        return false;
+    }
+    let env = |k: &str| std::env::var_os(k).map(PathBuf::from);
+    if env("LOCALAPPDATA").is_some_and(|local| is_same_or_inside(path, &local.join("Programs"))) {
+        return false;
+    }
+    ["APPDATA", "LOCALAPPDATA", "USERPROFILE"]
+        .iter()
+        .filter_map(|k| env(k))
+        .any(|root| is_same_or_inside(path, &root))
+}
+
+/// Profile dot-folders that hold credentials or are shared by many tools; never offered even when
+/// a program happens to carry the same name.
+const SHARED_DOT_FOLDERS: &[&str] = &[
+    ".ssh", ".gnupg", ".aws", ".azure", ".kube", ".config", ".cache", ".local", ".git",
+    ".gitconfig", ".npm", ".nuget", ".m2", ".gradle", ".cargo", ".rustup", ".pki", ".vscode-shared",
+];
+
+/// `%USERPROFILE%\.<product>` folders (LM Studio keeps `~\.lmstudio`, Ollama `~\.ollama`, …).
+/// They often hold large user data such as downloaded models, so they start unselected.
+fn scan_profile_dot_folders(ctx: &ScanContext<'_>, out: &mut Collector) {
+    let names = &ctx.program.names;
+    if names.is_empty() {
+        return;
+    }
+    let Some(profile) = std::env::var_os("USERPROFILE").map(PathBuf::from) else { return };
+    for (name, path) in child_dirs(&profile) {
+        let Some(bare) = name.strip_prefix('.') else { continue };
+        let lower = name.to_ascii_lowercase();
+        if SHARED_DOT_FOLDERS.contains(&lower.as_str()) {
+            continue;
+        }
+        if names.matches(bare) && !ctx.others.owns_name(bare) {
+            push_folder(ctx, out, path, LeftoverConfidence::Medium);
+        }
+    }
+}
+
+/// Per-user data folders that exist right now for a still-installed program (shown before the
+/// uninstall so the user knows what will be offered afterwards). The program's own folder is
+/// excluded: its uninstaller removes it.
+pub(crate) fn scan_related_data(ctx: &ScanContext<'_>) -> Vec<LeftoverItem> {
+    let mut out = Collector {
+        items: Vec::new(),
+        seen: HashSet::new(),
+    };
+    scan_named_folders(ctx, &mut out);
+    scan_profile_dot_folders(ctx, &mut out);
+    let install_dir = ctx.program.install_dir.as_deref();
+    out.items
+        .into_iter()
+        .map(|l| l.item)
+        .filter(|item| {
+            matches!(item.kind, LeftoverKind::Folder)
+                && !install_dir.is_some_and(|dir| is_same_or_inside(Path::new(&item.location), dir))
+        })
+        .collect()
 }
 
 fn scan_install_dir(ctx: &ScanContext<'_>, out: &mut Collector) {
@@ -350,6 +426,7 @@ fn scan_named_folders(ctx: &ScanContext<'_>, out: &mut Collector) {
             // folder is owned by this package alone.
             let mut budget = 200_000;
             let bytes = folder_size(&packages, &mut budget);
+            let before = out.items.len();
             out.push(
                 LeftoverKind::Folder,
                 packages.to_string_lossy().into_owned(),
@@ -359,6 +436,11 @@ fn scan_named_folders(ctx: &ScanContext<'_>, out: &mut Collector) {
                 false,
                 LeftoverAction::RecyclePath(packages),
             );
+            if out.items.len() > before {
+                if let Some(last) = out.items.last_mut() {
+                    last.item.user_data = true;
+                }
+            }
         }
     }
 }
@@ -831,6 +913,23 @@ mod trace_tests {
         assert!(is_generic_exe("unins000.exe"));
         assert!(is_generic_exe("setup.exe"));
         assert!(!is_generic_exe("uninstall omniroute.exe"));
+    }
+
+    #[test]
+    fn user_data_paths_exclude_program_files() {
+        let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else { return };
+        let Some(profile) = std::env::var_os("USERPROFILE").map(PathBuf::from) else { return };
+        let install = local.join("Programs").join("LM Studio");
+        assert!(!is_user_data_path(&install, Some(&install)));
+        assert!(!is_user_data_path(&local.join("Programs").join("Other"), None));
+        assert!(is_user_data_path(&profile.join(".lmstudio"), Some(&install)));
+        assert!(is_user_data_path(&local.join("lm-studio-updater"), Some(&install)));
+        assert!(!is_user_data_path(Path::new(r"C:\Program Files\App"), None));
+    }
+
+    #[test]
+    fn shared_dot_folders_are_lowercase() {
+        assert!(SHARED_DOT_FOLDERS.iter().all(|n| n.starts_with('.') && *n == n.to_ascii_lowercase()));
     }
 
     #[test]

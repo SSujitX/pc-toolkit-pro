@@ -192,6 +192,33 @@ const DEV_ROOT_NAMES: &[&str] = &[
     "git",
 ];
 
+/// Top-level folders of an extra drive that are never searched for projects (Windows, installed
+/// programs, profiles, recovery data, and game libraries hold no user source trees but millions of
+/// files).
+const DRIVE_SKIP: &[&str] = &[
+    "windows",
+    "windows.old",
+    "program files",
+    "program files (x86)",
+    "program files (arm)",
+    "programdata",
+    "users",
+    "perflogs",
+    "recovery",
+    "msocache",
+    "intel",
+    "amd",
+    "nvidia",
+    "drivers",
+    "onedrivetemp",
+    "xboxgames",
+    "steamlibrary",
+    "steam",
+    "epic games",
+    "riot games",
+    "games",
+];
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct DiscoveryLimits {
     /// Folder depth below each discovery root.
@@ -208,6 +235,21 @@ impl Default for DiscoveryLimits {
             max_dirs: 300_000,
             max_projects: 5_000,
             time_budget: Duration::from_secs(25),
+        }
+    }
+}
+
+impl DiscoveryLimits {
+    /// Extra drives are searched from their top level, so allow a larger walk.
+    fn with_extra_drives(extra: usize) -> Self {
+        if extra == 0 {
+            return Self::default();
+        }
+        let base = Self::default();
+        Self {
+            max_dirs: base.max_dirs + 300_000 * extra as u64,
+            time_budget: base.time_budget + Duration::from_secs(20 * extra as u64),
+            ..base
         }
     }
 }
@@ -566,12 +608,47 @@ fn home_dir() -> Option<PathBuf> {
     std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()).map(PathBuf::from)
 }
 
+/// Search roots for drives the user added in the scope picker: every non-hidden top-level folder
+/// except system, program, profile and game folders. Folders already covered by `roots` are left
+/// out by the caller's nesting filter.
+pub(crate) fn extra_drive_roots(drives: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    for drive in drives {
+        let Some(listing) = list_dir(drive) else { continue };
+        let mut dirs = listing.dirs;
+        dirs.sort_by(|a, b| a.lower.cmp(&b.lower));
+        for dir in dirs {
+            if !dir.hidden
+                && !dir.lower.starts_with('$')
+                && !DRIVE_SKIP.contains(&dir.lower.as_str())
+                && !NEVER_DESCEND.contains(&dir.lower.as_str())
+            {
+                roots.push(dir.path);
+            }
+        }
+    }
+    roots
+}
+
 fn default_roots() -> Vec<PathBuf> {
     discovery_roots(home_dir().as_deref(), &pctoolkit_platform::fixed_drive_roots())
 }
 
+/// Default roots plus the extra drives chosen for this scan, without nested duplicates.
+fn scoped_roots(extra_drives: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = default_roots();
+    roots.extend(extra_drive_roots(extra_drives));
+    let mut seen = HashSet::new();
+    roots.retain(|r| seen.insert(path_key(r)));
+    let snapshot = roots.clone();
+    roots.retain(|r| !snapshot.iter().any(|o| is_strict_descendant(r, o)));
+    roots
+}
+
 struct SharedDiscovery {
     at: Instant,
+    /// Extra drives the discovery covered; a scope change invalidates it.
+    extra_drives: Vec<PathBuf>,
     discovery: Arc<Discovery>,
 }
 
@@ -584,16 +661,19 @@ fn shared_discovery(on_dir: &dyn Fn(&Path)) -> Arc<Discovery> {
         Ok(slot) => slot,
         Err(poisoned) => poisoned.into_inner(),
     };
+    let extra_drives = super::scope::selected_project_drive_roots();
     if let Some(cached) = slot.as_ref() {
-        if cached.at.elapsed() < SHARED_DISCOVERY_TTL {
+        if cached.at.elapsed() < SHARED_DISCOVERY_TTL && cached.extra_drives == extra_drives {
             return Arc::clone(&cached.discovery);
         }
     }
-    let discovery = Arc::new(discover(&default_roots(), DiscoveryLimits::default(), on_dir));
+    let limits = DiscoveryLimits::with_extra_drives(extra_drives.len());
+    let discovery = Arc::new(discover(&scoped_roots(&extra_drives), limits, on_dir));
     // A cancelled walk is incomplete; do not let the next scan reuse it.
     if !cancelled() {
         *slot = Some(SharedDiscovery {
             at: Instant::now(),
+            extra_drives,
             discovery: Arc::clone(&discovery),
         });
     }

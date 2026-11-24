@@ -1,6 +1,6 @@
 use pctoolkit_core::{
     cancel_uninstaller as core_cancel, clean_leftovers, dismiss_removed_program, focus_uninstaller, get_program_icons,
-    list_programs, ProgramIcon, scan_program_leftovers,
+    list_programs, preview_related_data, ProgramIcon, RelatedDataPreview, scan_program_leftovers,
     uninstall_program, LeftoverCleanRequest, LeftoverCleanResult, LeftoverScan, ProgramInventory,
     UninstallReport, UninstallRequest,
 };
@@ -50,6 +50,12 @@ pub async fn scan_program_leftovers_command(
         })
     })
     .await
+}
+
+/// Read-only preview of a program's per-user data folders for the uninstall confirmation.
+#[tauri::command]
+pub async fn preview_program_related_data(request: ProgramIdRequest) -> CommandResult<RelatedDataPreview> {
+    run_blocking("preview_program_related_data", move || preview_related_data(&request.program_id)).await
 }
 
 #[tauri::command]

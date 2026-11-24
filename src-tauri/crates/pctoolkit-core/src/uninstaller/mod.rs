@@ -382,6 +382,37 @@ where
     }
 }
 
+/// Per-user data folders of a still-installed program, shown in the uninstall confirmation.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelatedDataPreview {
+    pub program_id: String,
+    pub items: Vec<LeftoverItem>,
+    pub total_bytes: u64,
+}
+
+/// Read-only preview of the program's data folders (app data and `~\.<product>` folders). It
+/// takes no busy lock so it can run while the confirmation dialog is open; nothing is remembered
+/// for cleaning, the post-uninstall leftover scan stays the only source of clean ids.
+pub fn preview_related_data(program_id: &str) -> CoreResult<RelatedDataPreview> {
+    let (record, others) = find_record(program_id)?;
+    let program = snapshot(&record, Vec::new());
+    let protected = ProtectedRoots::from_environment();
+    let ctx = ScanContext {
+        program: &program,
+        others: &others,
+        protected: &protected,
+        admin_roots: admin_roots_from_environment(),
+    };
+    let items = leftovers::scan_related_data(&ctx);
+    let total_bytes = items.iter().map(|i| i.bytes).sum();
+    Ok(RelatedDataPreview {
+        program_id: record.program.id.clone(),
+        items,
+        total_bytes,
+    })
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UninstallRequest {

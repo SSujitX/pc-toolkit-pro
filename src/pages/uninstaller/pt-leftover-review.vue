@@ -173,6 +173,11 @@ function onClean() {
                     :title="t('uninstaller.leftovers.reviewHint')"
                   >{{ t('uninstaller.leftovers.review') }}</span>
                   <span
+                    v-if="item.userData"
+                    class="badge badge-user-data"
+                    :title="t('uninstaller.leftovers.userDataHint')"
+                  >{{ t('uninstaller.leftovers.userData') }}</span>
+                  <span
                     v-if="item.requiresAdmin && !isAdmin"
                     class="badge badge-admin"
                     :title="t('uninstaller.leftovers.adminHint')"
@@ -414,6 +419,10 @@ function onClean() {
 .badge-review {
   background: color-mix(in oklab, var(--warning) 18%, transparent);
   color: color-mix(in oklab, var(--warning) 85%, var(--foreground));
+}
+.badge-user-data {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: color-mix(in oklab, var(--primary) 80%, var(--foreground));
 }
 .badge-admin {
   background: var(--muted);
