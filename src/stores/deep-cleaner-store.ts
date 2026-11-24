@@ -6,6 +6,7 @@ import {
   isReclaimable,
   recommendedIds,
   selectableByAll,
+  type DeepCleanupDrive,
   type DeepCleanupGroup,
   type DeepCleanupProgress,
   type DeepCleanupRuleExecResult,
@@ -31,6 +32,8 @@ export const useDeepCleanerStore = defineStore('deepCleaner', {
     log: [] as string[],
     selectionMode: 'smart' as DeepCleanupSelectionMode,
     hasScanned: false,
+    /** Fixed drives for the scope picker (extra drives are searched for projects). */
+    drives: [] as DeepCleanupDrive[],
   }),
   getters: {
     visibleRules(state): DeepCleanupRule[] {
@@ -147,6 +150,24 @@ export const useDeepCleanerStore = defineStore('deepCleaner', {
         this.busySince = null;
         this.progress = null;
         app.setBusy(PAGE_IDS.deepCleaner, false);
+      }
+    },
+    async loadDrives() {
+      try {
+        this.drives = await DeepCleanerService.listDrives();
+      } catch {
+        // The picker stays hidden; the scan still covers the system drive and developer roots.
+        this.drives = [];
+      }
+    },
+    async setDriveSelected(letter: string, selected: boolean) {
+      const letters = this.drives
+        .filter((d) => !d.system && (d.letter === letter ? selected : d.selected))
+        .map((d) => d.letter);
+      try {
+        this.drives = await DeepCleanerService.setDrives(letters);
+      } catch (error) {
+        useAppStore().reportError(error);
       }
     },
     dismissResult() {
