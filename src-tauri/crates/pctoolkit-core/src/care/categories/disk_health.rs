@@ -251,7 +251,7 @@ mod tests {
     use std::time::Instant;
 
     fn volume(letter: char, fs: &str, total: u64, free: u64) -> FixedVolume {
-        FixedVolume { letter, file_system: Some(fs.into()), total_bytes: total, free_bytes: free, volume_guid: None }
+        FixedVolume { letter, file_system: Some(fs.into()), total_bytes: total, free_bytes: free, volume_guid: None, label: None }
     }
 
     fn facts(letter: char, disk: u32, health: StorageHealth) -> VolumeDiskFacts {
